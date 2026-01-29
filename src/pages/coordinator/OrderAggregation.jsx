@@ -1,0 +1,314 @@
+import React, { useState } from 'react';
+import { 
+  orders, 
+  deliveries,
+  orderDetails, 
+  stores, 
+  users,
+  getProductById,
+  notifyListeners,
+  useMockDataWatcher
+} from '../../data/mockData';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Badge } from '../../components/ui/badge';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { EmptyState } from '../../components/common/EmptyState';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { 
+  Package, 
+  Truck, 
+  MapPin, 
+  Calendar,
+  CheckCircle2,
+  Loader2
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+export default function OrderAggregation() {
+  // This hook forces the component to re-render when mock data is mutated
+  useMockDataWatcher();
+
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [showCreateDelivery, setShowCreateDelivery] = useState(false);
+  const [selectedShipper, setSelectedShipper] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Get waiting orders
+  const waitingOrders = orders
+    .filter(o => o.status === 'WAITTING' && !o.delivery_id)
+    .map(o => ({
+      ...o,
+      store: stores.find(s => s.store_id === o.store_id),
+      details: orderDetails
+        .filter(od => od.order_id === o.order_id)
+        .map(od => ({
+          ...od,
+          product: getProductById(od.product_id)
+        }))
+    }));
+
+  // Get available shippers
+  const shippers = users.filter(u => u.role_id === 5);
+
+  const toggleOrder = (orderId) => {
+    setSelectedOrders(prev =>
+      prev.includes(orderId)
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    );
+  };
+
+  const toggleAll = () => {
+    if (selectedOrders.length === waitingOrders.length) {
+      setSelectedOrders([]);
+    } else {
+      setSelectedOrders(waitingOrders.map(o => o.order_id));
+    }
+  };
+
+  const handleCreateDelivery = async () => {
+    if (!selectedShipper || selectedOrders.length === 0) {
+      toast.error('Vui lòng chọn shipper và ít nhất 1 đơn hàng');
+      return;
+    }
+
+    setIsCreating(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // --- LOGIC CẬP NHẬT MOCK DATA ---
+    // 1. Tạo ID mới cho chuyến xe
+    const newDeliveryId = deliveries.length > 0 ? Math.max(...deliveries.map(d => d.delivery_id)) + 1 : 1;
+    
+    // 2. Thêm chuyến xe mới vào mảng deliveries
+    deliveries.push({
+      delivery_id: newDeliveryId,
+      delivery_date: deliveryDate,
+      status: 'WAITTING',
+      shipper_id: parseInt(selectedShipper),
+      created_at: new Date().toISOString()
+    });
+
+    // 3. Cập nhật các đơn hàng đã chọn: gán vào chuyến xe mới
+    selectedOrders.forEach(orderId => {
+      const order = orders.find(o => o.order_id === orderId);
+      if (order) {
+        order.delivery_id = newDeliveryId;
+        // Khi đã có chuyến, đơn hàng vẫn có thể ở trạng thái WAITTING hoặc chuyển sang PROCESSING tùy logic
+      }
+    });
+    // --------------------------------
+
+    // Notify all listening components to re-render
+    notifyListeners();
+
+    toast.success(`Đã tạo chuyến giao hàng với ${selectedOrders.length} đơn`);
+    setShowCreateDelivery(false);
+    setSelectedOrders([]);
+    setSelectedShipper('');
+    setIsCreating(false);
+  };
+
+  const selectedOrdersData = waitingOrders.filter(o => selectedOrders.includes(o.order_id));
+
+  // Group by address/area for display
+  const groupedByStore = selectedOrdersData.reduce((acc, order) => {
+    const storeId = order.store_id;
+    if (!acc[storeId]) {
+      acc[storeId] = {
+        store: order.store,
+        orders: []
+      };
+    }
+    acc[storeId].orders.push(order);
+    return acc;
+  }, {});
+
+  if (waitingOrders.length === 0) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={Package}
+          title="Không có đơn hàng chờ xử lý"
+          description="Tất cả đơn hàng đã được gom vào chuyến giao"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6 animate-fade-in">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Gom đơn hàng</h1>
+          <p className="text-muted-foreground">
+            Chọn các đơn hàng để tạo chuyến giao hàng
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={toggleAll}>
+            {selectedOrders.length === waitingOrders.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+          </Button>
+          <Button 
+            onClick={() => setShowCreateDelivery(true)}
+            disabled={selectedOrders.length === 0}
+          >
+            <Truck className="h-4 w-4 mr-2" />
+            Tạo chuyến ({selectedOrders.length})
+          </Button>
+        </div>
+      </div>
+
+      {/* Orders List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {waitingOrders.map((order) => {
+          const isSelected = selectedOrders.includes(order.order_id);
+          
+          return (
+            <Card 
+              key={order.order_id}
+              className={`cursor-pointer transition-all ${
+                isSelected ? 'ring-2 ring-primary bg-primary/5' : 'hover:bg-muted/50'
+              }`}
+              onClick={() => toggleOrder(order.order_id)}
+            >
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <Checkbox 
+                      checked={isSelected}
+                      onCheckedChange={() => toggleOrder(order.order_id)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div>
+                      <CardTitle className="text-base">Đơn #{order.order_id}</CardTitle>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                        <MapPin className="h-3 w-3" />
+                        {order.store?.store_name}
+                      </p>
+                    </div>
+                  </div>
+                  <StatusBadge status={order.status} type="order" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {order.store?.address}
+                </p>
+                <div className="space-y-2">
+                  {order.details.map((detail) => (
+                    <div 
+                      key={detail.order_detail_id}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span>{detail.product?.image}</span>
+                        {detail.product?.product_name}
+                      </span>
+                      <Badge variant="secondary">x{detail.quantity}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Create Delivery Dialog */}
+      <Dialog open={showCreateDelivery} onOpenChange={setShowCreateDelivery}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Tạo chuyến giao hàng</DialogTitle>
+            <DialogDescription>
+              Xác nhận thông tin chuyến giao hàng
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Selected Orders Summary */}
+            <div className="space-y-2">
+              <Label>Đơn hàng đã chọn ({selectedOrders.length})</Label>
+              <div className="max-h-40 overflow-y-auto space-y-2 p-3 bg-muted/50 rounded-lg">
+                {Object.values(groupedByStore).map(({ store, orders }) => (
+                  <div key={store.store_id} className="text-sm">
+                    <p className="font-medium">{store.store_name}</p>
+                    <p className="text-muted-foreground text-xs">{store.address}</p>
+                    <p className="text-muted-foreground">
+                      {orders.length} đơn hàng
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Shipper Selection */}
+            <div className="space-y-2">
+              <Label>Chọn Shipper</Label>
+              <Select value={selectedShipper} onValueChange={setSelectedShipper}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn nhân viên giao hàng" />
+                </SelectTrigger>
+                <SelectContent>
+                  {shippers.map((shipper) => (
+                    <SelectItem key={shipper.user_id} value={shipper.user_id.toString()}>
+                      {shipper.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Delivery Date */}
+            <div className="space-y-2">
+              <Label>Ngày giao hàng</Label>
+              <Input
+                type="date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDelivery(false)}>
+              Hủy
+            </Button>
+            <Button onClick={handleCreateDelivery} disabled={isCreating}>
+              {isCreating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang tạo...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Xác nhận
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
