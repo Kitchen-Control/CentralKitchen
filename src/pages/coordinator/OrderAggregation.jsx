@@ -67,7 +67,7 @@ export default function OrderAggregation() {
     }));
 
   // Get available shippers
-  const shippers = users.filter(u => u.role_id === 5);
+  const shippers = users.filter(u => u.role_id === 6);
 
   const toggleOrder = (orderId) => {
     setSelectedOrders(prev =>

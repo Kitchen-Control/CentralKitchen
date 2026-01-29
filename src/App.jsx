@@ -22,6 +22,10 @@ import CoordinatorDashboard from "./pages/coordinator/Dashboard";
 import OrderAggregation from "./pages/coordinator/OrderAggregation";
 import Deliveries from "./pages/coordinator/Deliveries";
 
+// Manager pages
+import ManagerDashboard from "./pages/manager/ManagerDashboard";
+import ProductionPlanning from "./pages/manager/ProductionPlanning";
+
 // Kitchen pages
 import KitchenDashboard from "./pages/kitchen/Dashboard";
 import Inventory from "./pages/kitchen/Inventory";
@@ -71,6 +75,10 @@ const App = () => (
                 <Route path="/coordinator" element={<CoordinatorDashboard />} />
                 <Route path="/coordinator/orders" element={<OrderAggregation />} />
                 <Route path="/coordinator/deliveries" element={<Deliveries />} />
+
+                {/* Manager routes */}
+                <Route path="/manager" element={<ManagerDashboard />} />
+                <Route path="/manager/planning" element={<ProductionPlanning />} />
 
                 {/* Kitchen routes */}
                 <Route path="/kitchen" element={<KitchenDashboard />} />

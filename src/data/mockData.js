@@ -3,10 +3,11 @@ import React from 'react';
 
 export const roles = [
   { role_id: 1, role_name: 'Admin' },
-  { role_id: 2, role_name: 'Supply Coordinator' },
-  { role_id: 3, role_name: 'Kitchen Manager' },
-  { role_id: 4, role_name: 'Store Manager' },
-  { role_id: 5, role_name: 'Shipper' },
+  { role_id: 2, role_name: 'Manager' },
+  { role_id: 3, role_name: 'Store Staff' },
+  { role_id: 4, role_name: 'Kitchen Manager' },
+  { role_id: 5, role_name: 'Supply Coordinator' },
+  { role_id: 6, role_name: 'Shipper' },
 ];
 
 export const stores = [
@@ -19,14 +20,13 @@ export const stores = [
 
 export const users = [
   { user_id: 1, username: 'admin', password: 'pass123', full_name: 'System Administrator', role_id: 1, store_id: null, is_active: true },
-  { user_id: 2, username: 'supply_coor', password: 'pass123', full_name: 'Tran Van Supply', role_id: 2, store_id: null, is_active: true },
-  { user_id: 3, username: 'kitchen_mgr', password: 'pass123', full_name: 'Nguyen Chef Manager', role_id: 3, store_id: 1, is_active: true },
-  { user_id: 4, username: 'mgr_south', password: 'pass123', full_name: 'Manager South', role_id: 4, store_id: 1, is_active: true },
-  { user_id: 5, username: 'mgr_east', password: 'pass123', full_name: 'Manager East', role_id: 4, store_id: 2, is_active: true },
-  { user_id: 6, username: 'mgr_west', password: 'pass123', full_name: 'Manager West', role_id: 4, store_id: 3, is_active: true },
-  { user_id: 7, username: 'mgr_north', password: 'pass123', full_name: 'Manager North', role_id: 4, store_id: 4, is_active: true },
-  { user_id: 8, username: 'mgr_one', password: 'pass123', full_name: 'Manager One', role_id: 4, store_id: 5, is_active: true },
-  { user_id: 9, username: 'shipper1', password: 'pass123', full_name: 'Shipper Nguyen', role_id: 5, store_id: null, is_active: true },
+  { user_id: 2, username: 'manager', password: 'pass123', full_name: 'Tran Giam Doc', role_id: 2, store_id: null, is_active: true },
+  { user_id: 3, username: 'staff_q1', password: 'pass123', full_name: 'Le Nhan Vien Q1', role_id: 3, store_id: 1, is_active: true },
+  { user_id: 4, username: 'staff_q7', password: 'pass123', full_name: 'Pham Nhan Vien Q7', role_id: 3, store_id: 1, is_active: true },
+  { user_id: 5, username: 'kitchen_mgr', password: 'pass123', full_name: 'Vo Bep Truong', role_id: 4, store_id: null, is_active: true },
+  { user_id: 6, username: 'coordinator', password: 'pass123', full_name: 'Dang Dieu Phoi', role_id: 5, store_id: null, is_active: true },
+  { user_id: 7, username: 'shipper_01', password: 'pass123', full_name: 'Hoang Shipper 1', role_id: 6, store_id: null, is_active: true },
+  { user_id: 8, username: 'shipper_02', password: 'pass123', full_name: 'Bui Shipper 2', role_id: 6, store_id: null, is_active: true },
 ];
 
 export const products = [
@@ -57,8 +57,8 @@ export const recipeDetails = [
 ];
 
 export const productionPlans = [
-  { plan_id: 1, kitchen_id: 1, created_by: 3, plan_date: '2023-10-01', start_date: '2023-10-01', end_date: '2023-10-03', status: 'DONE', note: 'Plan tuần 1 tháng 10' },
-  { plan_id: 2, kitchen_id: 1, created_by: 3, plan_date: new Date().toISOString().split('T')[0], start_date: new Date().toISOString().split('T')[0], end_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], status: 'PROCESSING', note: 'Plan tuần này' },
+  { plan_id: 1, kitchen_id: 1, created_by: 2, plan_date: '2023-10-01', start_date: '2023-10-01', end_date: '2023-10-03', status: 'DONE', note: 'Plan tuần 1 tháng 10' },
+  { plan_id: 2, kitchen_id: 1, created_by: 2, plan_date: new Date().toISOString().split('T')[0], start_date: new Date().toISOString().split('T')[0], end_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], status: 'PROCESSING', note: 'Plan tuần này' },
 ];
 
 export const productionPlanDetails = [
@@ -87,8 +87,8 @@ export const inventoryTransactions = [
 ];
 
 export const deliveries = [
-  { delivery_id: 1, delivery_date: '2023-10-04', status: 'DONE', shipper_id: 9, created_at: '2023-10-04' },
-  { delivery_id: 2, delivery_date: new Date().toISOString().split('T')[0], status: 'PROCESSING', shipper_id: 9, created_at: new Date().toISOString() },
+  { delivery_id: 1, delivery_date: '2023-10-04', status: 'DONE', shipper_id: 7, created_at: '2023-10-04' },
+  { delivery_id: 2, delivery_date: new Date().toISOString().split('T')[0], status: 'PROCESSING', shipper_id: 7, created_at: new Date().toISOString() },
   { delivery_id: 3, delivery_date: new Date().toISOString().split('T')[0], status: 'WAITTING', shipper_id: null, created_at: new Date().toISOString() },
 ];
 
@@ -116,7 +116,7 @@ export const qualityFeedbacks = [
 export const notifications = [
   { id: 1, user_id: 4, title: 'Đơn hàng #1 đang được giao', time: '5 phút trước', read: false, type: 'order' },
   { id: 2, user_id: 3, title: 'Cảnh báo nguyên liệu Bột mì sắp hết', time: '1 giờ trước', read: false, type: 'inventory' },
-  { id: 3, user_id: 9, title: 'Bạn vừa được gán chuyến xe mới #2', time: '10 phút trước', read: true, type: 'delivery' },
+  { id: 3, user_id: 7, title: 'Bạn vừa được gán chuyến xe mới #2', time: '10 phút trước', read: true, type: 'delivery' },
   { id: 4, user_id: 2, title: 'Yêu cầu nhập kho mới từ Bếp', time: '30 phút trước', read: false, type: 'inventory' },
   { id: 5, user_id: 4, title: 'Đơn hàng #5 đã được xác nhận', time: '2 giờ trước', read: true, type: 'order' },
 ];
@@ -142,24 +142,31 @@ export const fetchOrders = async () => {
 };
 
 export const loginUser = async (username, password) => {
-  try {
-    const response = await fetch('https://kitchencontrolbe.onrender.com/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, password }),
-    });
+  const response = await fetch('https://kitchencontrolbe.onrender.com/auth/login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username, password }),
+  });
 
-    if (!response.ok) {
-      throw new Error('Đăng nhập thất bại');
+  if (!response.ok) {
+    let errorMessage = 'Đăng nhập thất bại do lỗi không xác định.';
+    try {
+      // Cố gắng lấy thông báo lỗi chi tiết từ body của response
+      const errorData = await response.json();
+      if (errorData && errorData.message) {
+        errorMessage = errorData.message;
+      } else {
+        errorMessage = `Lỗi ${response.status}: ${response.statusText}`;
+      }
+    } catch (e) {
+      // Body không phải JSON hoặc rỗng
+      errorMessage = `Lỗi ${response.status}: ${response.statusText}`;
     }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('Error logging in:', error);
-    throw error;
+    throw new Error(errorMessage);
   }
+  return await response.json();
 };
 
 // --- Reactivity System for Mock Data ---

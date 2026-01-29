@@ -22,6 +22,8 @@ const breadcrumbMap = {
   '/store/orders': 'Lịch sử đơn hàng',
   '/store/feedback': 'Đánh giá chất lượng',
   '/store/cart': 'Giỏ hàng',
+  '/manager': 'Tổng quan',
+  '/manager/planning': 'Kế hoạch sản xuất',
   '/coordinator': 'Bảng điều khiển',
   '/coordinator/orders': 'Gom đơn hàng',
   '/coordinator/deliveries': 'Quản lý chuyến xe',
@@ -44,10 +46,11 @@ const breadcrumbMap = {
 
 const roleHome = {
   1: { name: 'Quản trị', path: '/admin' },
-  2: { name: 'Điều phối', path: '/coordinator' },
-  3: { name: 'Bếp', path: '/kitchen' },
-  4: { name: 'Cửa hàng', path: '/store' },
-  5: { name: 'Giao hàng', path: '/shipper' },
+  2: { name: 'Quản lý', path: '/manager' },
+  3: { name: 'Cửa hàng', path: '/store' },
+  4: { name: 'Bếp', path: '/kitchen' },
+  5: { name: 'Điều phối', path: '/coordinator' },
+  6: { name: 'Giao hàng', path: '/shipper' },
 };
 
 export function MainLayout() {

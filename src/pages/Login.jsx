@@ -34,6 +34,9 @@ export default function Login() {
         userData = await loginUser(username, password);
       } catch (apiErr) {
         console.warn("API Login failed, trying local data...", apiErr);
+        toast.warning("Không thể kết nối máy chủ. Đang thử đăng nhập offline.", {
+          description: apiErr.message,
+        });
       }
       // Tạm thời vô hiệu hóa gọi API để chạy hoàn toàn Offline
       // try {
@@ -53,7 +56,7 @@ export default function Login() {
             user: localUser,
             token: 'mock-local-token'
           };
-          toast.info('Đang sử dụng dữ liệu đăng nhập cục bộ');
+          // Không cần toast.info ở đây vì đã có toast.warning ở trên, cung cấp đủ thông tin
         }
       }
 
@@ -63,10 +66,11 @@ export default function Login() {
 
         const roleHome = {
           1: '/admin',
-          2: '/coordinator',
-          3: '/kitchen',
-          4: '/store',
-          5: '/shipper',
+          2: '/manager',
+          3: '/store',
+          4: '/kitchen',
+          5: '/coordinator',
+          6: '/shipper',
         };
         // Lưu ý: role_id trong users.json của bạn cần khớp với roleHome ở đây
         const path = roleHome[userData.user.role_id] || '/';

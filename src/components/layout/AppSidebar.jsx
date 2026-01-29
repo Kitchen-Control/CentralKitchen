@@ -37,33 +37,7 @@ import {
 } from 'lucide-react';
 
 const menuByRole = {
-  // Store Staff
-  4: [
-    { title: 'Đặt hàng', url: '/store', icon: ShoppingCart },
-    { title: 'Lịch sử đơn hàng', url: '/store/orders', icon: History },
-    { title: 'Đánh giá chất lượng', url: '/store/feedback', icon: MessageSquare },
-  ],
-  // Supply Coordinator
-  2: [
-    { title: 'Bảng điều khiển', url: '/coordinator', icon: LayoutDashboard },
-    { title: 'Gom đơn hàng', url: '/coordinator/orders', icon: ClipboardList },
-    { title: 'Quản lý chuyến xe', url: '/coordinator/deliveries', icon: Truck },
-  ],
-  // Kitchen Manager
-  3: [
-    { title: 'Bảng điều khiển', url: '/kitchen', icon: LayoutDashboard },
-    { title: 'Xuất kho giao hàng', url: '/kitchen/outbound', icon: Package },
-    { title: 'Sản xuất', url: '/kitchen/production', icon: Factory },
-    { title: 'Nhập nguyên liệu', url: '/kitchen/procurement', icon: Warehouse },
-    { title: 'Quản lý hủy hàng', url: '/kitchen/waste', icon: FileWarning },
-    { title: 'Tồn kho', url: '/kitchen/inventory', icon: Package },
-  ],
-  // Shipper
-  5: [
-    { title: 'Chuyến hàng của tôi', url: '/shipper', icon: Truck },
-    { title: 'Bản đồ giao hàng', url: '/shipper/map', icon: MapPin },
-  ],
-  // Admin
+  // Admin (Role 1)
   1: [
     { title: 'Bảng điều khiển', url: '/admin', icon: LayoutDashboard },
     { title: 'Quản lý công thức', url: '/admin/recipes', icon: BookOpen },
@@ -73,14 +47,46 @@ const menuByRole = {
     { title: 'Báo cáo', url: '/admin/reports', icon: BarChart3 },
     { title: 'Cài đặt', url: '/admin/settings', icon: Settings },
   ],
+  // Manager (Role 2)
+  2: [
+    { title: 'Tổng quan', url: '/manager', icon: LayoutDashboard },
+    { title: 'Kế hoạch sản xuất', url: '/manager/planning', icon: ClipboardList },
+  ],
+  // Store Staff (Role 3)
+  3: [
+    { title: 'Đặt hàng', url: '/store', icon: ShoppingCart },
+    { title: 'Lịch sử đơn hàng', url: '/store/orders', icon: History },
+    { title: 'Đánh giá chất lượng', url: '/store/feedback', icon: MessageSquare },
+  ],
+  // Kitchen Manager (Role 4)
+  4: [
+    { title: 'Bảng điều khiển', url: '/kitchen', icon: LayoutDashboard },
+    { title: 'Xuất kho giao hàng', url: '/kitchen/outbound', icon: Package },
+    { title: 'Sản xuất', url: '/kitchen/production', icon: Factory },
+    { title: 'Nhập nguyên liệu', url: '/kitchen/procurement', icon: Warehouse },
+    { title: 'Quản lý hủy hàng', url: '/kitchen/waste', icon: FileWarning },
+    { title: 'Tồn kho', url: '/kitchen/inventory', icon: Package },
+  ],
+  // Supply Coordinator (Role 5)
+  5: [
+    { title: 'Bảng điều khiển', url: '/coordinator', icon: LayoutDashboard },
+    { title: 'Gom đơn hàng', url: '/coordinator/orders', icon: ClipboardList },
+    { title: 'Quản lý chuyến xe', url: '/coordinator/deliveries', icon: Truck },
+  ],
+  // Shipper (Role 6)
+  6: [
+    { title: 'Chuyến hàng của tôi', url: '/shipper', icon: Truck },
+    { title: 'Bản đồ giao hàng', url: '/shipper/map', icon: MapPin },
+  ],
 };
 
 const roleNames = {
   1: 'Quản trị viên',
-  2: 'Điều phối viên',
-  3: 'Quản lý bếp',
-  4: 'Nhân viên cửa hàng',
-  5: 'Nhân viên giao hàng',
+  2: 'Quản lý',
+  3: 'Nhân viên cửa hàng',
+  4: 'Quản lý bếp',
+  5: 'Điều phối viên',
+  6: 'Nhân viên giao hàng',
 };
 
 export function AppSidebar() {
