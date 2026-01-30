@@ -6,7 +6,7 @@ import {
   stores, 
   users,
   getProductById,
-  notifyListeners,
+  createDeliveryAndUpdate,
   useMockDataWatcher
 } from '../../data/mockData';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -92,39 +92,23 @@ export default function OrderAggregation() {
     }
 
     setIsCreating(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // --- LOGIC CẬP NHẬT MOCK DATA ---
-    // 1. Tạo ID mới cho chuyến xe
-    const newDeliveryId = deliveries.length > 0 ? Math.max(...deliveries.map(d => d.delivery_id)) + 1 : 1;
-    
-    // 2. Thêm chuyến xe mới vào mảng deliveries
-    deliveries.push({
-      delivery_id: newDeliveryId,
-      delivery_date: deliveryDate,
-      status: 'WAITTING',
-      shipper_id: parseInt(selectedShipper),
-      created_at: new Date().toISOString()
-    });
-
-    // 3. Cập nhật các đơn hàng đã chọn: gán vào chuyến xe mới
-    selectedOrders.forEach(orderId => {
-      const order = orders.find(o => o.order_id === orderId);
-      if (order) {
-        order.delivery_id = newDeliveryId;
-        // Khi đã có chuyến, đơn hàng vẫn có thể ở trạng thái WAITTING hoặc chuyển sang PROCESSING tùy logic
-      }
-    });
-    // --------------------------------
-
-    // Notify all listening components to re-render
-    notifyListeners();
-
-    toast.success(`Đã tạo chuyến giao hàng với ${selectedOrders.length} đơn`);
-    setShowCreateDelivery(false);
-    setSelectedOrders([]);
-    setSelectedShipper('');
-    setIsCreating(false);
+    try {
+      const deliveryData = {
+        shipperId: parseInt(selectedShipper),
+        deliveryDate: deliveryDate,
+        orderIds: selectedOrders
+      };
+      await createDeliveryAndUpdate(deliveryData);
+      
+      toast.success(`Đã tạo chuyến giao hàng với ${selectedOrders.length} đơn`);
+      setShowCreateDelivery(false);
+      setSelectedOrders([]);
+      setSelectedShipper('');
+    } catch (error) {
+      toast.error('Tạo chuyến giao hàng thất bại', { description: error.message });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const selectedOrdersData = waitingOrders.filter(o => selectedOrders.includes(o.order_id));

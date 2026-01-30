@@ -1,0 +1,71 @@
+- Manager kho của bếp xác định sản lượng mà bếp cần làm
+- Manager kho của bếp tự lên kế hoạch sản xuất
+- Central kitchen tự phân lô sau khi nhận production plan từ manager
+
+
+BUSINESS MAIN FLOW
+Flow 1: Quy trình đặt sản phẩm (MAIN)
+- B1: Đặt hàng
+	- Store: Đăng nhập user (được phân role theo role_id) để vào được app
+- Store: sau khi vào app, app sẽ liệt kê ra 1 list finished_product kèm theo số lượng còn trong kho của bếp, sau đó store quyết định đặt bao nhiêu -> sinh ra 1 bảng ghi của order và nhiều order_details
+- Công thức: Available_Stock = Tổng Inventory - Tổng số lượng đang nằm trong các đơn hàng trạng thái WAITING/PROCESSING.
+- Store: sau khi xác nhận order inventory tự động trừ Available Stock theo công thức trên
+
+- B2: Nhận order
+	- Supply coordinator: Đăng nhập user (được phân role theo role_id) để vào được app
+	- Supply coordinator: sẽ nhận các order từ cửa hàng đặt, sau đó supply coordinator tích vào 1 nhóm các order  ->  Sinh ra 1 bản ghi delivery  ->  gán các order ở trên vào 1 delivery_id và delivery_date để biết shipper nào sẽ nhận nhóm đơn đó, ngày nào đi giao và đi giao cho cửa hàng nào-> delivery status mặc định mới tạo ra là waiting.
+
+- B3: Quản lý kho của bếp
+	- Kitchen manager: Đăng nhập user (được phân role theo role_id) để vào được app
+- Kitchen manager: Sau khi vào app, Kitchen manager làm 1 inventory_transaction để xuất kho dựa vào lượng order thuộc 
+về delivery_id đó cần phải giao và bắt buộc phải chọn batch_id ( những lô được hiện thị trên app), mỗi inventory_transaction chỉ có 1 sản phẩm và sau khi xuất kho thì tự động trừ quantity của inventory có batch id tương ứng
+- B4: Giao hàng
+	- Shipper: Đăng nhập user (được phân role theo role_id) để vào được app
+- Shipper: Vào app thành công, app sẽ show 1 list các orders cần giao cho các cửa hàng và đi giao theo địa chỉ được show ở mỗi đơn trên màn hình
+
+- B5: Nhận hàng
+	- Shipper: giao thành công đến các cửa hàng xong, điều chỉnh orders.status thành DONE ( nếu đơn rủi ro thì báo là DAMAGED
+	- Store: nhận hàng và đánh giá (quality_feedback) -> sinh ra quality_feedback
+
+Flow 2: Quy trình sản xuất sản phẩm
+- B1: Quản lý kho của bếp
+	- Manager: Đăng nhập user (được phân role theo role_id) để vào được app
+	- Manager: xem số lượng sản phẩm hoàn thành (finished product) còn thiếu hoặc hết -> rồi sẽ lên production plan và đưa cho bếp sản xuất
+	
+- B2: Sản xuất sản phẩm
+	- Central kitchen: Nhận production_plan rồi dựa vào đó để phân ra các lô để sản xuất, mỗi 1 lô chỉ có 1 loại product -> mặc định status của log_batch sau khi phân lô là processing
+	- Manager: Sau khi bếp phân lô, manager chọn xem chi tiết production_plan để có thể xem tiến độ của các lô sản xuất thuộc về production_plan nào -> Quản lý tiến độ
+	- Central kitchen: Sau khi làm xong lô nào, central kitchen lên chỉnh lại status của log_batch thành DONE
+
+- B3: Nhập kho
+	- Manager: sau khi thấy lô nào đã hoàn thành -> làm 1 đơn nhập kho (inventory_transactions) -> inventory của production đó sẽ tự động tăng sau khi làm xong inventory_transaction
+	
+Flow 3: Quy trình Nhập mua Nguyên vật liệu (Procurement Flow)
+- B1: Nhập hàng từ Nhà cung cấp
+- Store Manager: Mua nguyên liệu (Thịt, bột, rau...) từ bên ngoài về kho Bếp.
+- Kitchen Manager: Kiểm tra hàng thực tế nhận được.
+- B2: Tạo lô nhập (System Record)
+- Kitchen Manager: Tạo một bản ghi vào bảng log_batches trên App.
+- Dữ liệu:
+type: Chọn PURCHASE (theo Enum log_batches_type).
+product_id: Chọn nguyên liệu (RAW_MATERIAL).
+plan_id: NULL (Vì hàng mua về không thuộc kế hoạch sản xuất nội bộ).
+status: DONE (Hàng mua về là dùng được ngay).
+expiry_date: Nhập theo bao bì sản phẩm.
+- B3: Tăng tồn kho (Inventory Inbound)
+System (Auto): Ngay sau khi tạo Batch, hệ thống tự động tạo một dòng trong inventory_transactions với type = IMPORT.
+System: Cộng số lượng vào bảng inventories.
+
+Flow 4: Quy trình Kiểm soát Hàng Hết hạn & Hủy hàng (Waste Management Flow)
+- B1: Cảnh báo hết hạn (Automation)
+System (Cron Job): Mỗi ngày, hệ thống quét bảng inventories kết hợp với log_batches.
+Logic: Nếu expiry_date < Hôm nay VÀ quantity > 0.
+Action:
+Đổi trạng thái log_batches.status thành EXPIRED.
+Gửi thông báo cho Manager: "Lô hàng #B001 đã hết hạn".
+- B2: Xử lý hủy hàng (Disposal)
+Manager: Đi kiểm tra kho thực tế, xác nhận hàng không dùng được nữa.
+Manager: Thực hiện thao tác "Hủy hàng" trên App.
+- B3: Ghi nhận & Báo cáo
+System: Tạo inventory_transactions với type = EXPORT (Xuất hủy) để đưa tồn kho về 0.
+System: Tạo bản ghi vào bảng reports với report_type = 'WASTE' để cuối tháng tính toán chi phí lỗ vốn do hư hỏng.

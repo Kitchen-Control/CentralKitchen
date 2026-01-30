@@ -1,5 +1,6 @@
 // Mock Data for Franchise Central Kitchen Management System
 import React from 'react';
+import * as api from './api';
 
 export const roles = [
   { role_id: 1, role_name: 'Admin' },
@@ -126,14 +127,38 @@ export const reports = [];
 // --- API ---
 export const fetchOrders = async () => {
   try {
-    const response = await fetch('https://kitchencontrolbe.onrender.com/orders');
-    if (!response.ok) throw new Error('Failed to fetch orders');
-    const data = await response.json();
+    const data = await api.fetchOrders();
     
     if (Array.isArray(data)) {
       // Update orders array in-place to maintain references
       orders.length = 0;
-      orders.push(...data);
+      orderDetails.length = 0; // Xóa chi tiết cũ để nạp mới từ API
+
+      data.forEach(apiOrder => {
+        // 1. Map Order
+        orders.push({
+          order_id: apiOrder.orderId,
+          delivery_id: apiOrder.deliveryId,
+          store_id: apiOrder.storeId,
+          order_date: apiOrder.orderDate,
+          status: apiOrder.status,
+          img: apiOrder.img,
+          comment: apiOrder.comment
+        });
+
+        // 2. Map Order Details (nếu có)
+        if (Array.isArray(apiOrder.orderDetails)) {
+          apiOrder.orderDetails.forEach(od => {
+            orderDetails.push({
+              order_detail_id: od.orderDetailId,
+              order_id: apiOrder.orderId,
+              product_id: od.productId,
+              quantity: od.quantity
+            });
+          });
+        }
+      });
+      
       notifyListeners();
     }
   } catch (error) {
@@ -141,35 +166,47 @@ export const fetchOrders = async () => {
   }
 };
 
-export const loginUser = async (username, password) => {
+export const fetchProducts = async () => {
   try {
-    const response = await fetch('https://kitchencontrolbe.onrender.com/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, password }),
-    });
-
-    if (!response.ok) {
-      let errorMessage = 'Đăng nhập thất bại do lỗi không xác định.';
-      try {
-        const errorData = await response.json();
-        if (errorData && errorData.message) {
-          errorMessage = errorData.message;
-        } else {
-          errorMessage = `Lỗi ${response.status}: ${response.statusText}`;
-        }
-      } catch (e) {
-        errorMessage = `Lỗi ${response.status}: ${response.statusText}`;
-      }
-      throw new Error(errorMessage);
+    const data = await api.getProducts();
+    
+    if (Array.isArray(data)) {
+      products.length = 0;
+      data.forEach(p => {
+        products.push({
+          product_id: p.productId,
+          product_name: p.productName,
+          product_type: p.productType,
+          unit: p.unit,
+          shelf_life_days: p.shelfLifeDays,
+          // Giữ lại các trường UI cần mà API chưa có (để tránh lỗi undefined)
+          image: p.img || '📦', 
+          price: 0 
+        });
+      });
+      notifyListeners();
     }
-    return await response.json();
   } catch (error) {
-    // Bắt lỗi mạng (như CORS, mất mạng) để không bị crash ứng dụng
-    console.error("Lỗi kết nối khi đăng nhập:", error);
-    throw error; // Ném lỗi tiếp để UI xử lý fallback
+    console.error('Error fetching products from API:', error);
+  }
+};
+
+export const createDeliveryAndUpdate = async (deliveryData) => {
+  try {
+    // Gọi API để tạo delivery mới ở backend
+    const newDelivery = await api.createDelivery(deliveryData);
+    
+    // Sau khi tạo thành công, gọi lại API fetchOrders để cập nhật trạng thái
+    // và delivery_id của các đơn hàng vừa được gán.
+    // Backend sẽ tự động chuyển status của các order này.
+    await fetchOrders();
+
+    // (Tùy chọn) Nếu có màn hình quản lý delivery, bạn có thể tạo thêm hàm fetchDeliveries()
+    
+    return newDelivery; // Trả về delivery vừa tạo nếu cần
+  } catch (error) {
+    console.error('Error creating delivery via API:', error);
+    throw error; // Ném lỗi ra để component UI có thể bắt và hiển thị
   }
 };
 
