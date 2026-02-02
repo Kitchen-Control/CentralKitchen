@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initializeAuth = () => {
       try {
-        const storedUser = localStorage.getItem('kitchen_user');
+        const storedUser = sessionStorage.getItem('kitchen_user');
         if (storedUser) {
           const parsedUser = JSON.parse(storedUser);
           // Kiểm tra đơn giản xem user có hợp lệ không (có id và role)
@@ -28,13 +28,13 @@ export const AuthProvider = ({ children }) => {
             setUser(parsedUser);
           } else {
             // Nếu dữ liệu rác, xóa ngay
-            localStorage.removeItem('kitchen_user');
+            sessionStorage.removeItem('kitchen_user');
             setUser(null);
           }
         }
       } catch (error) {
         console.error("Failed to parse user from local storage:", error);
-        localStorage.removeItem('kitchen_user');
+        sessionStorage.removeItem('kitchen_user');
         setUser(null);
       } finally {
         // Luôn tắt loading sau khi đã kiểm tra xong
@@ -62,13 +62,13 @@ export const AuthProvider = ({ children }) => {
       };
 
       setUser(fullUserData);
-      localStorage.setItem('kitchen_user', JSON.stringify(fullUserData));
+      sessionStorage.setItem('kitchen_user', JSON.stringify(fullUserData));
     }
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('kitchen_user');
+    sessionStorage.removeItem('kitchen_user');
     // Có thể thêm điều hướng về login tại đây hoặc để MainLayout tự xử lý
     window.location.href = '/login'; 
   };
