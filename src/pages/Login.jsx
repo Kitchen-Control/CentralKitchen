@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { loginUser } from '../data/api';
@@ -16,7 +17,24 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { login } = useAuth();
+  const { login, user, getRolePath } = useAuth();
+  const navigate = useNavigate();
+
+  // Đã đăng nhập -> chuyển hướng theo role (chạy sau khi React commit state)
+  useEffect(() => {
+    if (user) {
+      navigate(getRolePath(), { replace: true });
+    }
+  }, [user, getRolePath, navigate]);
+
+  // Đã có user thì hiển thị loading khi chờ chuyển hướng
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,17 +47,7 @@ export default function Login() {
       if (userData && userData.user) {
         login(userData);
         toast.success('Đăng nhập thành công!');
-        const roleHome = {
-          1: '/admin',
-          2: '/manager',
-          3: '/store',
-          4: '/kitchen',
-          5: '/coordinator',
-          6: '/shipper',
-        };
-        const path = roleHome[userData.user.role_id] || '/';
-        // Dùng window.location để đảm bảo reload đúng trang (tránh race condition với AuthProvider khi deploy)
-        window.location.replace(path);
+        // login() set user -> re-render -> Navigate ở trên sẽ chuyển hướng
       } else {
         toast.error('Tên đăng nhập hoặc mật khẩu không đúng.');
       }
