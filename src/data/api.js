@@ -149,12 +149,12 @@ function mapInventory(inv) {
 }
 
 const ROLE_NAME_TO_ID = {
-  Admin: ROLE_ID.ADMIN,
-  Manager: ROLE_ID.MANAGER,
-  'Store Staff': ROLE_ID.STORE_STAFF,
-  'Kitchen Manager': ROLE_ID.KITCHEN_MANAGER,
-  'Supply Coordinator': ROLE_ID.SUPPLY_COORDINATOR,
-  Shipper: ROLE_ID.SHIPPER
+  'admin': ROLE_ID.ADMIN,
+  'manager': ROLE_ID.MANAGER,
+  'store staff': ROLE_ID.STORE_STAFF,
+  'kitchen manager': ROLE_ID.KITCHEN_MANAGER,
+  'supply coordinator': ROLE_ID.SUPPLY_COORDINATOR,
+  'shipper': ROLE_ID.SHIPPER
 };
 
 function mapUserResponse(u) {
@@ -252,137 +252,79 @@ export const loginUser = async (username, password) => {
     // API có thể trả về { data: { user } }, { user }, hoặc chính user. Chuẩn hóa!
     const responseData = data?.data ?? data;
     const apiUser = responseData?.user ?? responseData;
-    const token = data?.token ?? responseData?.token; // Đảm bảo lấy được token
+    // Token có thể nằm ở root hoặc trong object
+    const token = data?.token ?? responseData?.token ?? apiUser?.token; 
 
+    // --- BƯỚC 2: GỌI API LẤY CHI TIẾT USER ĐỂ CÓ ROLE CHÍNH XÁC ---
     if (apiUser && (apiUser.userId != null || apiUser.user_id != null)) {
       const uid = apiUser.userId ?? apiUser.user_id;
-      
-      // Fix: Ưu tiên lấy roleId từ object role, nếu không có thì lấy trực tiếp từ user
-      // Thêm check apiUser.role.id và apiUser.role.name (trường hợp phổ biến)
-      let rawRoleId = apiUser.role?.roleId ?? apiUser.role?.role_id ?? apiUser.role?.id ?? apiUser.roleId ?? apiUser.role_id;
-      let rawRoleName = apiUser.role?.roleName ?? apiUser.role?.role_name ?? apiUser.role?.name ?? apiUser.roleName;
+      let finalUserDetail = apiUser;
+      let rawRoleName = apiUser.roleName ?? apiUser.role_name;
+      let rawRoleId = apiUser.roleId ?? apiUser.role_id;
+      let rawStoreId = apiUser.storeId ?? apiUser.store_id;
+      let rawStoreName = apiUser.storeName ?? apiUser.store_name;
 
-      // Fallback 1: Nếu role là primitive (số hoặc chuỗi)
-      if (apiUser.role) {
-        if (typeof apiUser.role === 'number') {
-          rawRoleId = apiUser.role;
-        } else if (typeof apiUser.role === 'string') {
-          rawRoleName = apiUser.role;
-        }
-      }
-
-      // Fallback 2: Nếu role nằm trong mảng roles hoặc authorities (Spring Security)
-      const rolesList = apiUser.roles || apiUser.authorities;
-      if (!rawRoleId && !rawRoleName && Array.isArray(rolesList) && rolesList.length > 0) {
-        const firstRole = rolesList[0];
-        if (typeof firstRole === 'string') rawRoleName = firstRole;
-        else if (typeof firstRole === 'object') {
-          rawRoleId = firstRole.id ?? firstRole.roleId;
-          // Check thêm authority cho Spring Security
-          rawRoleName = firstRole.name ?? firstRole.roleName ?? firstRole.authority;
-        }
-      }
-
-      // Fallback 3: Trích xuất từ JWT Token (Nếu Body thiếu Role)
-      if ((!rawRoleId && !rawRoleName) && token) {
-        const decoded = parseJwt(token);
-        if (decoded) {
-          console.log("JWT Decoded Claims:", decoded);
-          // Tìm các claim phổ biến chứa role
-          const jwtRoles = decoded.roles || decoded.authorities || decoded.role || decoded.scope;
-          if (Array.isArray(jwtRoles) && jwtRoles.length > 0) {
-            const r = jwtRoles[0];
-            rawRoleName = (typeof r === 'object') ? (r.authority || r.role) : r;
-          } else if (typeof jwtRoles === 'string') {
-            rawRoleName = jwtRoles;
-          }
-        }
-      }
-
-      // Fallback 4: Gọi API lấy chi tiết User (Nếu cả Body và Token đều thiếu)
-      if ((!rawRoleId && !rawRoleName) && uid && token) {
+      // Nếu login response thiếu Role (trường hợp bạn đang gặp), gọi API /users/{id}
+      // API này trả về UserResponse có roleName (theo OpenAPI)
+      if (!rawRoleName && !rawRoleId) {
         try {
-          console.log("Fetching full user detail for role...");
-          const detailRes = await fetch(`${API_BASE_URL}/users/${uid}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+          console.log(`[Login Fix] Fetching details for User ID: ${uid}`);
+          const detailResponse = await fetch(`${API_BASE_URL}/users/${uid}`, {
+            method: 'GET',
+            headers: { 
+              'Content-Type': 'application/json',
+              // Nếu backend yêu cầu token, gửi kèm (dù vừa login xong có thể chưa cần)
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            }
           });
-          if (detailRes.ok) {
-            const detailUser = await detailRes.json();
-            // Thử lấy lại role từ thông tin chi tiết
-            rawRoleId = detailUser.role?.roleId ?? detailUser.roleId ?? detailUser.role_id;
-            if (!rawRoleId && detailUser.role?.roleName) rawRoleName = detailUser.role.roleName;
-            if (!rawRoleId && typeof detailUser.role === 'number') rawRoleId = detailUser.role;
+          
+          if (detailResponse.ok) {
+            const detailData = await detailResponse.json();
+            // OpenAPI: /users/{id} trả về UserResponse { roleName, storeId, ... }
+            const userResp = detailData?.data ?? detailData; // Handle wrapper if any
+            
+            console.log("[Login Fix] User Detail Response:", userResp);
+            
+            if (userResp) {
+              finalUserDetail = { ...apiUser, ...userResp }; // Merge data
+              rawRoleName = userResp.roleName;
+              rawStoreId = userResp.storeId;
+              rawStoreName = userResp.storeName;
+            }
           }
-        } catch (e) {
-          console.warn("Failed to fetch user detail:", e);
+        } catch (err) {
+          console.error("[Login Fix] Failed to fetch user details:", err);
         }
       }
 
-      // Fallback 5: Map từ tên Role (xử lý cả "ROLE_ADMIN", "Admin", "kitchen manager"...)
+      // --- BƯỚC 3: MAP ROLE NAME SANG ID ---
       if (!rawRoleId && rawRoleName) {
-        const cleanName = String(rawRoleName).replace(/^ROLE_/i, '').trim();
-        
-        // Tìm chính xác (không phân biệt hoa thường)
-        const normalizedRoleName = Object.keys(ROLE_NAME_TO_ID).find(
-          key => key.toLowerCase() === cleanName.toLowerCase()
-        );
-        
-        if (normalizedRoleName) {
-          rawRoleId = ROLE_NAME_TO_ID[normalizedRoleName];
-        } else {
-          // Tìm theo từ khóa (Fuzzy match) - Phòng trường hợp tên không khớp 100%
-          const lowerName = cleanName.toLowerCase();
-          if (lowerName.includes('admin')) rawRoleId = ROLE_ID.ADMIN;
-          else if (lowerName.includes('kitchen')) rawRoleId = ROLE_ID.KITCHEN_MANAGER;
-          else if (lowerName.includes('store')) rawRoleId = ROLE_ID.STORE_STAFF;
-          else if (lowerName.includes('ship')) rawRoleId = ROLE_ID.SHIPPER;
-          else if (lowerName.includes('coord')) rawRoleId = ROLE_ID.SUPPLY_COORDINATOR;
-          else if (lowerName.includes('manager')) rawRoleId = ROLE_ID.MANAGER;
+        const cleanName = String(rawRoleName).trim().toLowerCase();
+        // Tìm trong map (case-insensitive)
+        const mappedKey = Object.keys(ROLE_NAME_TO_ID).find(k => k.toLowerCase() === cleanName);
+        if (mappedKey) {
+          rawRoleId = ROLE_NAME_TO_ID[mappedKey];
         }
       }
-
-      // Fallback 6: Map từ Username (Chỉ dùng khi tất cả các cách trên đều thất bại)
-      // Nếu API trả về thiếu Role, ta đoán quyền dựa trên tên đăng nhập
-      if (!rawRoleId && apiUser.username) {
-        const name = String(apiUser.username).toLowerCase();
-        // Thứ tự quan trọng: check từ khóa dài/cụ thể trước
-        if (name.includes('kitchen')) rawRoleId = ROLE_ID.KITCHEN_MANAGER;
-        else if (name.includes('coord')) rawRoleId = ROLE_ID.SUPPLY_COORDINATOR;
-        else if (name.includes('ship')) rawRoleId = ROLE_ID.SHIPPER;
-        else if (name.includes('store')) rawRoleId = ROLE_ID.STORE_STAFF;
-        else if (name.includes('admin')) rawRoleId = ROLE_ID.ADMIN;
-        else if (name.includes('manager')) rawRoleId = ROLE_ID.MANAGER;
-
-        if (rawRoleId) {
-           rawRoleName = 'Auto-Detected';
-           console.log(`[API Fix] Auto-detected Role ${rawRoleId} from username "${apiUser.username}"`);
-        }
-      }
-
+      
       const role = { role_id: rawRoleId, role_name: rawRoleName || 'Unknown' };
-
-      const store = apiUser.store
-        ? {
-            store_id: apiUser.store.storeId ?? apiUser.store.store_id,
-            store_name: apiUser.store.storeName ?? apiUser.store.store_name,
-            address: apiUser.store.address,
-            phone: apiUser.store.phone,
-          }
-        : null;
+      const store = {
+        store_id: rawStoreId,
+        store_name: rawStoreName
+      };
+      
       const mappedUser = {
         user_id: uid,
-        username: apiUser.username,
-        full_name: apiUser.fullName ?? apiUser.full_name,
+        username: finalUserDetail.username,
+        full_name: finalUserDetail.fullName ?? finalUserDetail.full_name,
         role_id: rawRoleId ?? null,
-        store_id: store?.store_id ?? null,
+        store_id: rawStoreId ?? null,
         role,
         store,
         token: token,
-        // Debug info: Lưu lại các keys của object gốc để hiển thị nếu lỗi
-        _debug_keys: Object.keys(apiUser),
-        _debug_role_raw: apiUser.role || apiUser.roles || apiUser.authorities
       };
-      console.log("Mapped User for Context:", mappedUser);
+      
+      console.log("Final Mapped User:", mappedUser);
       return { user: mappedUser, token: token };
     }
     return data;
