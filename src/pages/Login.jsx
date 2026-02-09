@@ -32,10 +32,8 @@ export default function Login() {
         login(userData);
         toast.success('Đăng nhập thành công!');
         
-        // Fix: Sử dụng logic điều hướng thống nhất từ AuthContext hoặc mapping chính xác
-        // userData.user đã được map qua api.js nên role_id đã chuẩn
-        const path = getRolePath ? getRolePath() : '/store';
-        // Dùng navigate thay vì window.location - user đã có trong context từ login()
+        // Truyền trực tiếp role_id vào getRolePath vì state user trong context chưa kịp cập nhật
+        const path = getRolePath(userData.user.role_id);
         navigate(path, { replace: true });
       } else {
         toast.error('Tên đăng nhập hoặc mật khẩu không đúng.');
