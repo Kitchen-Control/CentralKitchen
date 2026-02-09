@@ -354,7 +354,8 @@ export const getProducts = async () => {
 
 export const getProductsByType = async (productType) => {
   const response = await fetch(`${API_BASE_URL}/products/get-by-type/${productType}`);
-  return await handleResponse(response);
+  const data = await handleResponse(response);
+  return Array.isArray(data) ? data.map(mapProduct) : data;
 };
 
 export const createProduct = async (productData) => {
