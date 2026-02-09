@@ -1,241 +1,161 @@
 import React, { useState, useEffect } from 'react';
-import { getInventories, getProducts } from '../../data/api';
-import { PRODUCT_TYPE } from '../../data/constants';
+import { getInventories } from '../../data/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../../components/ui/table';
-import { Search, Package, AlertTriangle, Calendar } from 'lucide-react';
+import { Package, Search, AlertTriangle, Calendar, Archive } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 export default function Inventory() {
   const [inventories, setInventories] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    Promise.all([getInventories().catch(() => []), getProducts().catch(() => [])]).then(
-      ([invRes, prodRes]) => {
-        setInventories(Array.isArray(invRes) ? invRes : []);
-        setProducts(Array.isArray(prodRes) ? prodRes : []);
-      }
-    ).finally(() => setLoading(false));
+    loadData();
   }, []);
 
-  const getProductById = (id) => products.find((p) => p.product_id === id);
+  const loadData = async () => {
+    try {
+      const data = await getInventories();
+      setInventories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load inventory:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const enrichedInventory = inventories.map((inv) => {
-    const product = getProductById(inv.product_id);
+  // Logic tính trạng thái lô hàng dựa trên Hạn sử dụng (Expiry Date)
+  const getBatchStatus = (expiryDate) => {
+    if (!expiryDate) return { label: 'Không xác định', color: 'bg-gray-100 text-gray-800' };
+    
     const today = new Date();
-    const expiry = new Date(inv.expiry_date || 0);
-    const daysUntilExpiry = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-    return {
-      ...inv,
-      product,
-      daysUntilExpiry,
-      isExpiringSoon: daysUntilExpiry <= 3 && daysUntilExpiry > 0,
-      isExpired: daysUntilExpiry <= 0,
-      isLowStock: (inv.quantity ?? 0) < 20,
-    };
-  });
+    const exp = new Date(expiryDate);
+    const diffTime = exp - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  const filteredInventory = enrichedInventory.filter((inv) =>
-    (inv.product?.product_name || inv.product_name || '')
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase())
+    if (diffDays < 0) {
+      return { label: 'Đã hết hạn', color: 'bg-red-100 text-red-800 border-red-200' };
+    } else if (diffDays <= 3) {
+      return { label: 'Sắp hết hạn', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+    } else {
+      return { label: 'Còn hạn', color: 'bg-green-100 text-green-800 border-green-200' };
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('vi-VN');
+  };
+
+  const filteredInventories = inventories.filter(item => 
+    item.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.batch?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const rawMaterials = filteredInventory.filter(
-    (inv) => inv.product?.product_type === 'RAW_MATERIAL'
-  );
-  const semiFinished = filteredInventory.filter(
-    (inv) => inv.product?.product_type === 'SEMI_FINISHED'
-  );
-  const finishedProducts = filteredInventory.filter(
-    (inv) => inv.product?.product_type === 'FINISHED_PRODUCT'
-  );
-
-  const formatDate = (dateString) => new Date(dateString).toLocaleDateString('vi-VN');
-
-  const InventoryTable = ({ items, title }) => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {items.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">Không có sản phẩm nào</div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Sản phẩm</TableHead>
-                <TableHead>Lô</TableHead>
-                <TableHead className="text-right">Số lượng</TableHead>
-                <TableHead>Hạn sử dụng</TableHead>
-                <TableHead>Trạng thái</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((inv) => (
-                <TableRow key={inv.inventory_id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{inv.product?.image}</span>
-                      <div>
-                        <p className="font-medium">{inv.product?.product_name ?? inv.product_name}</p>
-                        <p className="text-xs text-muted-foreground">{inv.product?.unit}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {inv.batch ? (
-                      <Badge variant="outline">#{inv.batch.batchId ?? inv.batch.batch_id}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className={inv.isLowStock ? 'text-warning font-medium' : ''}>
-                      {inv.quantity}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span
-                        className={
-                          inv.isExpired ? 'text-destructive' : inv.isExpiringSoon ? 'text-warning' : ''
-                        }
-                      >
-                        {formatDate(inv.expiry_date)}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      {inv.isExpired && <Badge variant="destructive">Hết hạn</Badge>}
-                      {inv.isExpiringSoon && !inv.isExpired && (
-                        <Badge className="status-warning">Sắp hết hạn</Badge>
-                      )}
-                      {inv.isLowStock && (
-                        <Badge className="status-warning">Sắp hết</Badge>
-                      )}
-                      {!inv.isExpired && !inv.isExpiringSoon && !inv.isLowStock && (
-                        <Badge className="status-done">Bình thường</Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
-  );
-
-  const totalItems = enrichedInventory.length;
-  const lowStockCount = enrichedInventory.filter((i) => i.isLowStock).length;
-  const expiringSoonCount = enrichedInventory.filter((i) => i.isExpiringSoon).length;
-  const expiredCount = enrichedInventory.filter((i) => i.isExpired).length;
+  // Thống kê nhanh
+  const totalItems = filteredInventories.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+  const expiredCount = inventories.filter(i => getBatchStatus(i.expiry_date).label === 'Đã hết hạn').length;
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[200px]">
-        <p className="text-muted-foreground">Đang tải...</p>
+      <div className="p-8 flex justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Quản lý tồn kho</h1>
-        <p className="text-muted-foreground">Theo dõi và quản lý hàng tồn kho</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Kho Trung Tâm</h1>
+          <p className="text-muted-foreground">Quản lý tồn kho, lô hàng và hạn sử dụng (FEFO)</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Tìm theo tên SP hoặc mã lô..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Cards Thống kê */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Package className="h-8 w-8 text-primary" />
-              <div>
-                <p className="text-2xl font-bold">{totalItems}</p>
-                <p className="text-xs text-muted-foreground">Tổng mặt hàng</p>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tổng tồn kho</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalItems.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Đơn vị sản phẩm</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-8 w-8 text-warning" />
-              <div>
-                <p className="text-2xl font-bold">{lowStockCount}</p>
-                <p className="text-xs text-muted-foreground">Sắp hết hàng</p>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Lô hàng hết hạn</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{expiredCount}</div>
+            <p className="text-xs text-muted-foreground">Cần xử lý tiêu hủy ngay</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Calendar className="h-8 w-8 text-warning" />
-              <div>
-                <p className="text-2xl font-bold">{expiringSoonCount}</p>
-                <p className="text-xs text-muted-foreground">Sắp hết hạn</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-8 w-8 text-destructive" />
-              <div>
-                <p className="text-2xl font-bold">{expiredCount}</p>
-                <p className="text-xs text-muted-foreground">Đã hết hạn</p>
-              </div>
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tổng số lô</CardTitle>
+            <Archive className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{inventories.length}</div>
+            <p className="text-xs text-muted-foreground">Lô hàng đang quản lý</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Tìm kiếm sản phẩm..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      {/* Danh sách tồn kho */}
+      <div className="grid grid-cols-1 gap-4">
+        {filteredInventories.length === 0 ? (
+          <div className="text-center p-8 border rounded-lg bg-muted/20">
+            <p className="text-muted-foreground">Không tìm thấy dữ liệu tồn kho</p>
+          </div>
+        ) : (
+          filteredInventories.map((item) => {
+            const status = getBatchStatus(item.expiry_date);
+            return (
+              <Card key={item.inventory_id} className="hover:bg-muted/50 transition-colors">
+                <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center text-primary font-bold">
+                      {item.product_name?.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{item.product_name}</h3>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                        <span className="font-mono bg-muted px-1 rounded">Batch: {item.batch}</span>
+                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> HSD: {formatDate(item.expiry_date)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                    <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-medium border", status.color)}>{status.label}</span>
+                    <div className="text-right">
+                      <div className="text-xl font-bold">{Number(item.quantity).toLocaleString()}</div>
+                      <div className="text-xs text-muted-foreground">Tồn kho</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
       </div>
-
-      <Tabs defaultValue="finished" className="w-full">
-        <TabsList>
-          <TabsTrigger value="finished">Thành phẩm ({finishedProducts.length})</TabsTrigger>
-          <TabsTrigger value="semi">Bán thành phẩm ({semiFinished.length})</TabsTrigger>
-          <TabsTrigger value="raw">Nguyên liệu ({rawMaterials.length})</TabsTrigger>
-        </TabsList>
-        <TabsContent value="finished" className="mt-6">
-          <InventoryTable items={finishedProducts} title="Thành phẩm" />
-        </TabsContent>
-        <TabsContent value="semi" className="mt-6">
-          <InventoryTable items={semiFinished} title="Bán thành phẩm" />
-        </TabsContent>
-        <TabsContent value="raw" className="mt-6">
-          <InventoryTable items={rawMaterials} title="Nguyên liệu" />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }

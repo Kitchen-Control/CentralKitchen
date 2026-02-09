@@ -5,6 +5,38 @@
 const API_BASE_URL = '/api';
 import { ROLE_ID } from './constants';
 
+// --- MOCK DATA CONFIGURATION ---
+// Đổi thành false khi muốn kết nối API thật
+const USE_MOCK_DATA = false;
+
+const MOCK_DB = {
+  users: [
+    { userId: 1, username: 'admin', password: '123', roleId: 1, fullName: 'Administrator', roleName: 'Admin' },
+    { userId: 2, username: 'manager', password: '123', roleId: 2, fullName: 'General Manager', roleName: 'Manager' },
+    { userId: 3, username: 'store', password: '123', roleId: 3, fullName: 'Store Staff A', roleName: 'Store Staff', storeId: 101, storeName: 'Store Quận 1' },
+    { userId: 4, username: 'kitchen', password: '123', roleId: 4, fullName: 'Head Chef', roleName: 'Kitchen Manager' },
+    { userId: 5, username: 'coord', password: '123', roleId: 5, fullName: 'Logistics Coord', roleName: 'Supply Coordinator' },
+    { userId: 6, username: 'shipper', password: '123', roleId: 6, fullName: 'Nguyen Van Ship', roleName: 'Shipper' },
+  ],
+  inventories: [
+    { inventoryId: 1, productId: 101, productName: 'Thịt bò Úc', batch: 'B231001', quantity: 50, expiryDate: '2023-10-01' }, // Hết hạn
+    { inventoryId: 2, productId: 102, productName: 'Cà chua', batch: 'B231025', quantity: 120, expiryDate: new Date(Date.now() + 86400000 * 2).toISOString() }, // Sắp hết hạn (2 ngày nữa)
+    { inventoryId: 3, productId: 103, productName: 'Bột mì', batch: 'B231101', quantity: 500, expiryDate: new Date(Date.now() + 86400000 * 30).toISOString() }, // Còn hạn
+    { inventoryId: 4, productId: 101, productName: 'Thịt bò Úc', batch: 'B231105', quantity: 200, expiryDate: new Date(Date.now() + 86400000 * 15).toISOString() },
+  ],
+  orders: [
+    {
+      orderId: 999, storeId: 101, storeName: 'Store Quận 1', orderDate: new Date().toISOString(), status: 'DONE',
+      orderDetails: [{ productName: 'Pizza Bò', quantity: 2 }, { productName: 'Coke', quantity: 5 }]
+    }
+  ],
+  feedbacks: []
+};
+
+// Helper delay để giả lập mạng chậm
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+// -------------------------------
+
 async function handleResponse(response) {
   if (!response.ok) {
     let errorMessage = `Lỗi ${response.status}: ${response.statusText}`;
@@ -155,6 +187,29 @@ function mapFeedback(f) {
 const LOGIN_ERROR_MSG = 'Tên đăng nhập hoặc mật khẩu không đúng.';
 
 export const loginUser = async (username, password) => {
+  if (USE_MOCK_DATA) {
+    await delay(800); // Giả lập loading
+    const user = MOCK_DB.users.find(u => u.username === username && u.password === password);
+    
+    if (!user) {
+      throw new Error(LOGIN_ERROR_MSG);
+    }
+
+    // Map dữ liệu mock sang cấu trúc App cần
+    const mappedUser = {
+      user_id: user.userId,
+      username: user.username,
+      full_name: user.fullName,
+      role_id: user.roleId,
+      store_id: user.storeId || null,
+      role: { role_id: user.roleId, role_name: user.roleName },
+      store: user.storeId ? { store_id: user.storeId, store_name: user.storeName } : null,
+      token: 'mock-jwt-token-123456',
+    };
+
+    return { user: mappedUser, token: mappedUser.token };
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
@@ -214,6 +269,10 @@ export const loginUser = async (username, password) => {
 // --- Orders API (trả về snake_case) ---
 
 export const fetchOrders = async () => {
+  if (USE_MOCK_DATA) {
+    await delay(500);
+    return MOCK_DB.orders.map(mapOrder); // Lưu ý: mapOrder cần input camelCase nếu mock data viết camelCase
+  }
   const data = await handleResponse(await fetch(`${API_BASE_URL}/orders`));
   return Array.isArray(data) ? data.map(mapOrder) : data;
 };
@@ -251,6 +310,10 @@ export const updateOrderStatus = async (orderId, status) => {
 };
 
 export const getOrdersByStore = async (storeId) => {
+  if (USE_MOCK_DATA) {
+    await delay(500);
+    return MOCK_DB.orders.filter(o => o.storeId === storeId).map(mapOrder);
+  }
   const data = await handleResponse(await fetch(`${API_BASE_URL}/orders/get-by-store/${storeId}`));
   return Array.isArray(data) ? data.map(mapOrder) : data;
 };
@@ -422,6 +485,17 @@ export const getTransactionsByBatchId = async (batchId) => {
 // --- Inventories API (trả về snake_case, InventoryResponse có product_name) ---
 
 export const getInventories = async () => {
+  if (USE_MOCK_DATA) {
+    await delay(600);
+    // Mock data đã viết sẵn cấu trúc gần giống output, nhưng để nhất quán ta map lại
+    return MOCK_DB.inventories.map(inv => ({
+      inventory_id: inv.inventoryId,
+      product_name: inv.productName,
+      batch: inv.batch,
+      quantity: inv.quantity,
+      expiry_date: inv.expiryDate
+    }));
+  }
   const data = await handleResponse(await fetch(`${API_BASE_URL}/inventories`));
   return Array.isArray(data) ? data.map(mapInventory) : data;
 };
@@ -434,6 +508,10 @@ export const getInventoryById = async (inventoryId) => {
 // --- Quality Feedback API (trả về snake_case) ---
 
 export const getAllFeedbacks = async () => {
+  if (USE_MOCK_DATA) {
+    await delay(500);
+    return MOCK_DB.feedbacks.map(mapFeedback);
+  }
   const data = await handleResponse(await fetch(`${API_BASE_URL}/feedbacks`));
   return Array.isArray(data) ? data.map(mapFeedback) : data;
 };

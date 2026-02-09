@@ -63,6 +63,12 @@ export const AuthProvider = ({ children }) => {
       };
       setUser(fullUserData);
       sessionStorage.setItem('kitchen_user', JSON.stringify(fullUserData));
+
+      // FIX: Buộc chuyển hướng sang trang của Role ngay lập tức
+      // Sử dụng window.location.href để đảm bảo App reload lại với context mới
+      const roleId = Number(fullUserData.role_id);
+      const rolePath = ROLE_PATHS[roleId] || '/login';
+      window.location.href = rolePath;
     }
   };
 
