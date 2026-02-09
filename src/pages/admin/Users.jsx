@@ -1,155 +1,164 @@
 import React, { useState, useEffect } from 'react';
-import { getAllUsers, getAllStores } from '../../data/api';
-import { Card, CardContent } from '../../components/ui/card';
+import { getAllUsers, createUser, deleteUser, getAllStores } from '../../data/api';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Badge } from '../../components/ui/badge';
-import { Avatar, AvatarFallback } from '../../components/ui/avatar';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../../components/ui/table';
-import { Search, Plus, Edit, Store } from 'lucide-react';
-
-const ROLES = [
-  { role_id: 1, role_name: 'Admin' },
-  { role_id: 2, role_name: 'Manager' },
-  { role_id: 3, role_name: 'Store Staff' },
-  { role_id: 4, role_name: 'Kitchen Manager' },
-  { role_id: 5, role_name: 'Supply Coordinator' },
-  { role_id: 6, role_name: 'Shipper' },
-];
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Loader2, Trash2, UserPlus } from 'lucide-react';
+import { toast } from 'sonner';
+import { ROLE_ID } from '../../data/constants';
 
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [stores, setStores] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    Promise.all([getAllUsers().catch(() => []), getAllStores().catch(() => [])]).then(
-      ([usersRes, storesRes]) => {
-        setUsers(Array.isArray(usersRes) ? usersRes : []);
-        setStores(Array.isArray(storesRes) ? storesRes : []);
-      }
-    ).finally(() => setLoading(false));
-  }, []);
+  const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+    fullName: '',
+    roleId: '',
+    storeId: ''
+  });
 
-  const enrichedUsers = users.map((user) => ({
-    ...user,
-    role: ROLES.find((r) => r.role_id === user.role_id),
-    store: stores.find((s) => s.store_id === user.store_id),
-  }));
-  const filteredUsers = enrichedUsers.filter(
-    (u) =>
-      (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (u.username || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getRoleBadgeVariant = (roleId) => {
-    switch (roleId) {
-      case 1: return 'destructive';
-      case 2: return 'default';
-      case 3: return 'secondary';
-      default: return 'outline';
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [usersData, storesData] = await Promise.all([getAllUsers(), getAllStores()]);
+      setUsers(usersData || []);
+      setStores(storesData || []);
+    } catch (error) {
+      toast.error('Lỗi tải dữ liệu: ' + error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-6 flex items-center justify-center min-h-[200px]">
-        <p className="text-muted-foreground">Đang tải...</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleDelete = async (userId) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa người dùng này? Hành động này không thể hoàn tác.')) return;
+    
+    try {
+      await deleteUser(userId);
+      toast.success('Xóa người dùng thành công');
+      fetchData();
+    } catch (error) {
+      toast.error('Lỗi xóa người dùng: ' + error.message);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!formData.username || !formData.password || !formData.fullName || !formData.roleId) {
+      toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
+      return;
+    }
+
+    // BR-003: Store Staff bắt buộc phải có Store
+    if (Number(formData.roleId) === ROLE_ID.STORE_STAFF && !formData.storeId) {
+      toast.error('Nhân viên cửa hàng bắt buộc phải chọn Cửa hàng trực thuộc');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await createUser({
+        username: formData.username,
+        password: formData.password,
+        fullName: formData.fullName,
+        roleId: Number(formData.roleId),
+        storeId: formData.storeId ? Number(formData.storeId) : null
+      });
+      toast.success('Tạo người dùng thành công');
+      setIsOpen(false);
+      setFormData({ username: '', password: '', fullName: '', roleId: '', storeId: '' });
+      fetchData();
+    } catch (error) {
+      toast.error('Lỗi tạo người dùng: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Quản lý người dùng</h1>
-          <p className="text-muted-foreground">Quản lý tài khoản và phân quyền người dùng</p>
-        </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Thêm người dùng
-        </Button>
-      </div>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold tracking-tight">Quản lý Người dùng</h1>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button><UserPlus className="mr-2 h-4 w-4" /> Thêm Người dùng</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Thêm người dùng mới</DialogTitle></DialogHeader>
+            <div className="space-y-4 py-4">
+              <Input placeholder="Tên đăng nhập" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} />
+              <Input type="password" placeholder="Mật khẩu" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+              <Input placeholder="Họ và tên" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} />
+              
+              <Select onValueChange={v => setFormData({...formData, roleId: v})} value={formData.roleId}>
+                <SelectTrigger><SelectValue placeholder="Chọn Vai trò" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Admin</SelectItem>
+                  <SelectItem value="2">Manager</SelectItem>
+                  <SelectItem value="3">Store Staff</SelectItem>
+                  <SelectItem value="4">Kitchen Manager</SelectItem>
+                  <SelectItem value="5">Supply Coordinator</SelectItem>
+                  <SelectItem value="6">Shipper</SelectItem>
+                  <SelectItem value="7">Warehouse</SelectItem>
+                </SelectContent>
+              </Select>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {ROLES.map((role) => {
-          const count = users.filter((u) => u.role_id === role.role_id).length;
-          return (
-            <Card key={role.role_id}>
-              <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold">{count}</p>
-                <p className="text-sm text-muted-foreground">{role.role_name}</p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              {Number(formData.roleId) === ROLE_ID.STORE_STAFF && (
+                <Select onValueChange={v => setFormData({...formData, storeId: v})} value={formData.storeId}>
+                  <SelectTrigger><SelectValue placeholder="Chọn Cửa hàng" /></SelectTrigger>
+                  <SelectContent>
+                    {stores.map(s => (
+                      <SelectItem key={s.store_id} value={String(s.store_id)}>{s.store_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Tìm kiếm người dùng..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+              <Button onClick={handleCreate} disabled={isSubmitting} className="w-full">
+                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Tạo tài khoản'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Người dùng</TableHead>
-                <TableHead>Tên đăng nhập</TableHead>
+                <TableHead>ID</TableHead>
+                <TableHead>Username</TableHead>
+                <TableHead>Họ tên</TableHead>
                 <TableHead>Vai trò</TableHead>
                 <TableHead>Cửa hàng</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
+              {users.map((user) => (
                 <TableRow key={user.user_id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarFallback className="bg-primary/10 text-primary">
-                          {(user.full_name || 'U').charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium">{user.full_name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <code className="text-sm bg-muted px-2 py-1 rounded">{user.username}</code>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getRoleBadgeVariant(user.role_id)}>
-                      {user.role?.role_name ?? user.role_name ?? '-'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {user.store ? (
-                      <div className="flex items-center gap-2">
-                        <Store className="h-4 w-4 text-muted-foreground" />
-                        <span>{user.store.store_name}</span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">{user.store_name ?? '-'}</span>
-                    )}
-                  </TableCell>
+                  <TableCell>{user.user_id}</TableCell>
+                  <TableCell className="font-medium">{user.username}</TableCell>
+                  <TableCell>{user.full_name}</TableCell>
+                  <TableCell>{user.role_name}</TableCell>
+                  <TableCell>{user.store_name || '-'}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon">
-                      <Edit className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(user.user_id)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
                 </TableRow>

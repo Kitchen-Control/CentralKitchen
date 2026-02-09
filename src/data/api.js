@@ -111,7 +111,8 @@ const ROLE_NAME_TO_ID = {
   'store staff': ROLE_ID.STORE_STAFF,
   'kitchen manager': ROLE_ID.KITCHEN_MANAGER,
   'supply coordinator': ROLE_ID.SUPPLY_COORDINATOR,
-  'shipper': ROLE_ID.SHIPPER
+  'shipper': ROLE_ID.SHIPPER,
+  'warehouse': 7 // Mapping role Warehouse từ backend
 };
 
 function mapUserResponse(u) {
@@ -262,6 +263,8 @@ export const loginUser = async (username, password) => {
             rawRoleId = ROLE_ID.ADMIN;
           } else if (cleanName.includes('manager')) { // Để cuối cùng vì nó chung chung
             rawRoleId = ROLE_ID.MANAGER;
+          } else if (cleanName.includes('warehouse')) {
+            rawRoleId = 7; // ID cho Warehouse
           }
         }
       }
@@ -473,7 +476,7 @@ export const assignShipperToDelivery = async (deliveryId, shipperId) => {
 export const createDelivery = async (deliveryData) => {
   // OpenAPI Spec hiện tại KHÔNG có endpoint POST /deliveries.
   // Để tránh lỗi 405 Method Not Allowed, ta chặn ngay tại đây.
-  throw new Error("Chức năng tạo chuyến xe chưa được Backend hỗ trợ (Missing POST /deliveries).");
+  throw new Error("Chức năng tạo chuyến xe chưa được Lưu và Đanh hỗ trợ (Missing POST /deliveries).");
 };
 
 // --- Inventory Transactions API ---
@@ -518,19 +521,19 @@ export const getInventoryById = async (inventoryId) => {
 
 export const createPurchaseBatch = async (batchData) => {
   // OpenAPI Spec không có endpoint /log-batches
-  throw new Error("Chức năng nhập lô hàng chưa được Backend hỗ trợ (Missing API).");
+  throw new Error("Chức năng nhập lô hàng chưa được Lưu và Đanh hỗ trợ (Missing API).");
 };
 
 // API tạo lô sản xuất (Production Batch)
 export const createBatch = async (batchData) => {
   // OpenAPI Spec không có endpoint /log-batches
-  throw new Error("Chức năng tạo lô sản xuất chưa được Backend hỗ trợ (Missing API).");
+  throw new Error("Chức năng tạo lô sản xuất chưa được Lưu và Đanh hỗ trợ (Missing API).");
 };
 
 // API lấy kế hoạch sản xuất
 export const getProductionPlans = async () => {
   // OpenAPI Spec không có endpoint /production-plans
-  throw new Error("Chức năng kế hoạch sản xuất chưa được Backend hỗ trợ (Missing API).");
+  throw new Error("Chức năng kế hoạch sản xuất chưa được Lưu và Đanh hỗ trợ (Missing API).");
 };
 
 // --- Quality Feedback API (trả về snake_case) ---

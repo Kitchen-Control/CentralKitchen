@@ -1,147 +1,117 @@
 import React, { useState, useEffect } from 'react';
-import { getProducts } from '../../data/api';
-import { PRODUCT_TYPE } from '../../data/constants';
-import { Card, CardContent } from '../../components/ui/card';
+import { getProducts, createProduct } from '../../data/api';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Badge } from '../../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../../components/ui/table';
-import { Search, Plus, Edit, Package, Leaf, Cookie } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Loader2, Plus, Package } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Products() {
   const [products, setProducts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const [formData, setFormData] = useState({
+    productName: '',
+    productType: '',
+    unit: '',
+    shelfLifeDay: ''
+  });
+
+  const fetchProducts = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getProducts();
+      setProducts(data || []);
+    } catch (error) {
+      toast.error('Lỗi tải sản phẩm: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    getProducts()
-      .then((data) => setProducts(Array.isArray(data) ? data : []))
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
+    fetchProducts();
   }, []);
 
-  const filteredProducts = products.filter((p) =>
-    (p.product_name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  const rawMaterials = filteredProducts.filter((p) => p.product_type === 'RAW_MATERIAL');
-  const semiFinished = filteredProducts.filter((p) => p.product_type === 'SEMI_FINISHED');
-  const finishedProducts = filteredProducts.filter((p) => p.product_type === 'FINISHED_PRODUCT');
+  const handleCreate = async () => {
+    if (!formData.productName || !formData.productType || !formData.unit || !formData.shelfLifeDay) {
+      toast.error('Vui lòng điền đầy đủ thông tin');
+      return;
+    }
 
-  const ProductTable = ({ items }) => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Sản phẩm</TableHead>
-          <TableHead>Đơn vị</TableHead>
-          <TableHead>Hạn sử dụng</TableHead>
-          <TableHead>Giá bán</TableHead>
-          <TableHead className="text-right">Thao tác</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.map((product) => (
-          <TableRow key={product.product_id}>
-            <TableCell>
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{product.image || '📦'}</span>
-                <div>
-                  <p className="font-medium">{product.product_name}</p>
-                  <Badge variant="outline" className="text-xs mt-1">
-                    {PRODUCT_TYPE[product.product_type]?.label}
-                  </Badge>
-                </div>
-              </div>
-            </TableCell>
-            <TableCell>{product.unit}</TableCell>
-            <TableCell>{product.shelf_life_days} ngày</TableCell>
-            <TableCell>{product.price ? `${product.price.toLocaleString('vi-VN')}đ` : '-'}</TableCell>
-            <TableCell className="text-right">
-              <Button variant="ghost" size="icon">
-                <Edit className="h-4 w-4" />
-              </Button>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
+    setIsSubmitting(true);
+    try {
+      await createProduct({
+        productName: formData.productName,
+        productType: formData.productType,
+        unit: formData.unit,
+        shelfLifeDay: Number(formData.shelfLifeDay)
+      });
+      toast.success('Thêm sản phẩm thành công');
+      setIsOpen(false);
+      setFormData({ productName: '', productType: '', unit: '', shelfLifeDay: '' });
+      fetchProducts();
+    } catch (error) {
+      toast.error('Lỗi thêm sản phẩm: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-  if (loading) {
-    return (
-      <div className="p-6 flex items-center justify-center min-h-[200px]">
-        <p className="text-muted-foreground">Đang tải...</p>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Quản lý sản phẩm</h1>
-          <p className="text-muted-foreground">Quản lý danh sách sản phẩm trong hệ thống</p>
-        </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Thêm sản phẩm
-        </Button>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold tracking-tight">Quản lý Sản phẩm</h1>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="mr-2 h-4 w-4" /> Thêm Sản phẩm</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Thêm sản phẩm mới</DialogTitle></DialogHeader>
+            <div className="space-y-4 py-4">
+              <Input placeholder="Tên sản phẩm" value={formData.productName} onChange={e => setFormData({...formData, productName: e.target.value})} />
+              
+              <Select onValueChange={v => setFormData({...formData, productType: v})} value={formData.productType}>
+                <SelectTrigger><SelectValue placeholder="Loại sản phẩm" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="RAW_MATERIAL">Nguyên liệu thô</SelectItem>
+                  <SelectItem value="SEMI_FINISHED">Bán thành phẩm</SelectItem>
+                  <SelectItem value="FINISHED_PRODUCT">Thành phẩm</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Input placeholder="Đơn vị tính (kg, cái...)" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} />
+              <Input type="number" placeholder="Hạn sử dụng (ngày)" value={formData.shelfLifeDay} onChange={e => setFormData({...formData, shelfLifeDay: e.target.value})} />
+
+              <Button onClick={handleCreate} disabled={isSubmitting} className="w-full">
+                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Xác nhận'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Tìm kiếm sản phẩm..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+        {products.map((product) => (
+          <Card key={product.product_id} className="hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{product.product_name}</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{product.unit}</div>
+              <p className="text-xs text-muted-foreground">{product.product_type}</p>
+              <p className="text-xs text-muted-foreground mt-1">HSD: {product.shelf_life_days} ngày</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
-
-      <Tabs defaultValue="finished" className="w-full">
-        <TabsList>
-          <TabsTrigger value="finished" className="flex items-center gap-2">
-            <Cookie className="h-4 w-4" />
-            Thành phẩm ({finishedProducts.length})
-          </TabsTrigger>
-          <TabsTrigger value="semi" className="flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Bán thành phẩm ({semiFinished.length})
-          </TabsTrigger>
-          <TabsTrigger value="raw" className="flex items-center gap-2">
-            <Leaf className="h-4 w-4" />
-            Nguyên liệu ({rawMaterials.length})
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="finished" className="mt-6">
-          <Card>
-            <CardContent className="pt-6">
-              <ProductTable items={finishedProducts} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="semi" className="mt-6">
-          <Card>
-            <CardContent className="pt-6">
-              <ProductTable items={semiFinished} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="raw" className="mt-6">
-          <Card>
-            <CardContent className="pt-6">
-              <ProductTable items={rawMaterials} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }

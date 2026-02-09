@@ -12,6 +12,7 @@ const ROLE_PATHS = {
   4: '/kitchen',
   5: '/coordinator',
   6: '/shipper',
+  7: '/warehouse', // Route cho Warehouse
 };
 
 export const useAuth = () => {

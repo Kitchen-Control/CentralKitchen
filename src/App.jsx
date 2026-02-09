@@ -46,6 +46,9 @@ import Users from "./pages/admin/Users";
 import Recipes from "./pages/admin/Recipes";
 import Plans from "./pages/admin/Plans";
 
+// Warehouse pages
+import WarehouseDashboard from "./pages/warehouse/Dashboard";
+
 const queryClient = new QueryClient();
 
 // Placeholder component for pages not yet implemented
@@ -107,6 +110,15 @@ const App = () => (
                 <Route element={<ProtectedRoute allowedRoles={[ROLE_ID.SHIPPER]}><Outlet /></ProtectedRoute>}>
                   <Route path="/shipper" element={<MyTrips />} />
                   <Route path="/shipper/map" element={<DeliveryMap />} />
+                </Route>
+
+                {/* Warehouse routes (ID 7) */}
+                <Route element={<ProtectedRoute allowedRoles={[7]}><Outlet /></ProtectedRoute>}>
+                  <Route path="/warehouse" element={<WarehouseDashboard />} />
+                  <Route path="/warehouse/inventory" element={<Inventory />} />
+                  <Route path="/warehouse/procurement" element={<Procurement />} />
+                  <Route path="/warehouse/outbound" element={<Outbound />} />
+                  <Route path="/warehouse/waste" element={<Waste />} />
                 </Route>
 
                 {/* Admin routes */}
