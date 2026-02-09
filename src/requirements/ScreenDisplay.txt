@@ -52,7 +52,7 @@ Màn hình 1.3: Lịch sử Đơn hàng (Order History)
 Mục đích: Theo dõi trạng thái (Flow 1).
 UI Elements:
 List đơn hàng sắp xếp theo order_date giảm dần.
-Badges trạng thái màu sắc: WAITING (Vàng), PROCESSING (Xanh dương), DELIVERING (Tím), DONE (Xanh lá), CANCLED (Xám).
+Badges trạng thái màu sắc: WAITTING (Vàng), PROCESSING (Xanh dương), DELIVERING (Tím), DONE (Xanh lá), CANCLED (Xám).
 Entities: orders (Read/Update).
 Logic/Rules:
 BR-029: Chỉ hiện đơn của store_id hiện tại.
@@ -71,19 +71,17 @@ BR-028: Kiểm tra nếu đã có record trong quality_feedbacks thì ẩn form 
 2. PHÂN HỆ ĐIỀU PHỐI (COORDINATOR APP)
 Target User: Supply Coordinator
 
-Shutterstock
-Khám phá
 Màn hình 2.1: Bảng điều khiển Gom đơn (Order Grouping Dashboard)
 Mục đích: Gom các đơn chờ thành chuyến xe (Flow 1 - B2).
 UI Elements:
 Filter: Khu vực (Quận/Huyện), Ngày tạo.
-List các đơn hàng có status WAITING (gồm Tên Store, Địa chỉ, Tổng số lượng).
+List các đơn hàng có status WAITTING (gồm Tên Store, Địa chỉ, Tổng số lượng).
 Checkbox: Chọn nhiều đơn.
 Button: "Tạo chuyến giao hàng (deliveries)" (Floating Action Button).
 Entities: orders (Read).
 Logic/Rules:
-BR-011: Chỉ hiển thị đơn WAITING.
-BR-029: Được xem tất cả đơn WAITING toàn hệ thống.
+BR-011: Chỉ hiển thị đơn WAITTING.
+BR-029: Được xem tất cả đơn WAITTING toàn hệ thống.
 Màn hình 2.2: Tạo Chuyến xe (Create Delivery Modal)
 Mục đích: Gán Shipper và ngày giao.
 UI Elements:
@@ -259,3 +257,26 @@ Product & Recipe Mgmt
 Planning
 User & Store Mgmt
 Reports
+
+BẢNG ÁNH XẠ API ENDPOINTS (OpenAPI Spec)
+Màn hình | API Endpoint | Method | Ghi chú
+---------|--------------|--------|--------
+Login | /auth/login | POST | Trả 400/401 khi sai mật khẩu
+Marketplace | /products, /inventories | GET | Tính Available Stock
+Cart/Checkout | /orders | POST | storeId, comment, orderDetails
+Order History | /orders/get-by-store/{storeId} | GET | Chỉ đơn của store
+Order Cancel | /orders/update-status | PATCH | orderId, status=CANCLED
+Order Aggregation | /orders, /users, /stores | GET | Đơn WAITTING, danh sách Shipper
+Create Delivery | /deliveries | POST | shipperId, deliveryDate, orderIds (nếu backend hỗ trợ)
+Deliveries | /deliveries | GET | Tất cả chuyến xe
+Shipper Trips | /deliveries/get-by-shipper/{shipperId} | GET | Chuyến của shipper
+Inventory | /inventories | GET | Tồn kho
+Inventory by ID | /inventories/get-by-id/{id} | GET | Chi tiết 1 inventory
+Transactions | /inventory-transactions | GET, POST | Lịch sử nhập xuất
+Feedback | /feedbacks | GET, POST | orderId, rating, comment
+Products (Admin) | /products | GET, POST, PUT | CRUD sản phẩm
+Users (Admin) | /users | GET, POST, PUT, DELETE | CRUD người dùng
+Stores (Admin) | /stores | GET, POST, PUT, DELETE | CRUD cửa hàng
+Recipes | /recipes, /recipes/search/{keyword} | GET | Công thức
+Assign Shipper | /deliveries/{id}/assign-shipper/{shipperId} | PATCH | Gán shipper cho chuyến
+

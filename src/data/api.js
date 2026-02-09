@@ -144,6 +144,8 @@ function mapFeedback(f) {
 
 // --- Authentication (OpenAPI: /auth/login) ---
 
+const LOGIN_ERROR_MSG = 'Tên đăng nhập hoặc mật khẩu không đúng.';
+
 export const loginUser = async (username, password) => {
   try {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -151,6 +153,10 @@ export const loginUser = async (username, password) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     });
+    // API trả 400 (Invalid) hoặc 401 (Unauthorized) khi sai tên/mật khẩu
+    if (response.status === 400 || response.status === 401) {
+      throw new Error(LOGIN_ERROR_MSG);
+    }
     const data = await handleResponse(response);
 
     // API có thể trả về { user } hoặc chính user. Chuẩn hóa sang { user } với snake_case + role/store

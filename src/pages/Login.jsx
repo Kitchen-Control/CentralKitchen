@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { loginUser } from '../data/api';
@@ -18,7 +17,6 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   
   const { login } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,7 +38,8 @@ export default function Login() {
           6: '/shipper',
         };
         const path = roleHome[userData.user.role_id] || '/';
-        navigate(path, { replace: true });
+        // Dùng window.location để đảm bảo reload đúng trang (tránh race condition với AuthProvider khi deploy)
+        window.location.replace(path);
       } else {
         toast.error('Tên đăng nhập hoặc mật khẩu không đúng.');
       }
