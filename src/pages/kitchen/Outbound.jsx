@@ -1,134 +1,147 @@
 import React, { useState, useEffect } from 'react';
-import { getDeliveries, updateOrderStatus } from '../../data/api'; // Cần thêm API updateDeliveryStatus nếu có
+import { getDeliveries, getInventories, createTransaction } from '../../data/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
-import { Truck, PackageCheck, MapPin, CalendarClock, ChevronRight } from 'lucide-react';
+import { Loader2, Truck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { Badge } from '../../components/ui/badge';
 
 export default function Outbound() {
   const [deliveries, setDeliveries] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [inventories, setInventories] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
 
-  useEffect(() => {
-    loadDeliveries();
-  }, []);
-
-  const loadDeliveries = async () => {
+  const fetchData = async () => {
+    setIsLoading(true);
     try {
-      const data = await getDeliveries();
-      // Lọc các chuyến xe đang chờ xuất kho (giả sử logic là WAITING hoặc PROCESSING nhưng chưa xuất)
-      // Theo flow: Coordinator tạo chuyến -> WAITING -> Bếp xuất kho -> PROCESSING (Giao đi)
-      // Hoặc: WAITING -> Bếp confirm -> READY -> Shipper pick -> PROCESSING.
-      // Ở đây ta hiển thị các chuyến chưa hoàn thành.
-      const pending = (data || []).filter(d => d.status !== 'DONE'); 
-      setDeliveries(pending);
+      const [delData, invData] = await Promise.all([getDeliveries(), getInventories()]);
+      // Chỉ lấy các chuyến xe đang chờ (WAITING)
+      setDeliveries((delData || []).filter(d => d.orders && d.orders.some(o => o.status === 'WAITING')));
+      setInventories(invData || []);
     } catch (error) {
-      console.error("Load deliveries failed:", error);
+      toast.error('Lỗi tải dữ liệu: ' + error.message);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  // Hàm giả lập xuất kho (Backend sẽ xử lý trừ tồn kho FEFO)
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Gom nhóm sản phẩm cần xuất cho 1 chuyến xe
+  const aggregateItems = (delivery) => {
+    const items = {};
+    delivery.orders.forEach(order => {
+      if (order.status !== 'WAITING') return;
+      order.order_details.forEach(detail => {
+        if (!items[detail.product_id]) {
+          items[detail.product_id] = {
+            id: detail.product_id,
+            name: detail.product_name,
+            quantity: 0
+          };
+        }
+        items[detail.product_id].quantity += detail.quantity;
+      });
+    });
+    return Object.values(items);
+  };
+
   const handleDispatch = async (delivery) => {
+    if (!confirm(`Xác nhận xuất kho cho chuyến xe #${delivery.delivery_id}?`)) return;
+    
     setProcessingId(delivery.delivery_id);
-    const toastId = toast.loading(`Đang xuất kho cho chuyến #${delivery.delivery_id}...`);
-
+    const itemsNeeded = aggregateItems(delivery);
+    
     try {
-      // 1. Gọi API cập nhật trạng thái các đơn hàng trong chuyến sang DELIVERING (hoặc trạng thái trung gian)
-      // Trong thực tế sẽ gọi 1 API: POST /deliveries/{id}/dispatch
-      // Ở đây ta giả lập bằng cách update từng đơn (nếu API hạn chế) hoặc giả định thành công
-      
-      // Giả lập delay mạng
-      await new Promise(r => setTimeout(r, 1000));
+      // BR-020: FEFO Algorithm (First Expired First Out)
+      for (const item of itemsNeeded) {
+        let remainingQty = item.quantity;
+        
+        // Tìm các lô hàng của sản phẩm này, sắp xếp theo HSD tăng dần
+        const availableBatches = inventories
+          .filter(inv => inv.product_id === item.id && inv.quantity > 0)
+          .sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date));
 
-      // Logic: Update status đơn hàng hoặc chuyến xe. 
-      // Vì API hiện tại hạn chế, ta chỉ hiển thị thông báo thành công.
-      
-      toast.success(`Xuất kho thành công! Đã trừ tồn kho theo FEFO.`, { id: toastId });
-      
-      // Refresh list
-      loadDeliveries();
+        if (availableBatches.reduce((sum, b) => sum + b.quantity, 0) < remainingQty) {
+          throw new Error(`Không đủ tồn kho cho sản phẩm: ${item.name}`);
+        }
+
+        // Trừ dần từng lô
+        for (const batch of availableBatches) {
+          if (remainingQty <= 0) break;
+          
+          const deductQty = Math.min(batch.quantity, remainingQty);
+          
+          await createTransaction({
+            productId: item.id,
+            batchId: typeof batch.batch === 'object' ? batch.batch.batchId : batch.batch,
+            type: 'EXPORT',
+            quantity: deductQty,
+            note: `Xuất kho cho Delivery #${delivery.delivery_id}`
+          });
+
+          remainingQty -= deductQty;
+        }
+      }
+
+      toast.success(`Đã xuất kho thành công cho chuyến xe #${delivery.delivery_id}`);
+      fetchData(); // Reload data
     } catch (error) {
-      toast.error("Xuất kho thất bại", { id: toastId });
+      toast.error('Lỗi xuất kho: ' + error.message);
     } finally {
       setProcessingId(null);
     }
   };
 
-  if (loading) return <div className="p-8 text-center">Đang tải danh sách chuyến xe...</div>;
+  if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Xuất kho giao hàng</h1>
-        <p className="text-muted-foreground">Soạn hàng và xuất kho cho các chuyến xe (Flow 1 - B3)</p>
-      </div>
+      <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+        <Truck className="h-8 w-8" /> Soạn hàng & Xuất kho
+      </h1>
 
       <div className="grid gap-6">
-        {deliveries.length === 0 ? (
-          <Card className="bg-muted/40 border-dashed">
-            <CardContent className="p-12 text-center text-muted-foreground">
-              <Truck className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Hiện không có chuyến xe nào cần xuất kho</p>
+        {deliveries.length > 0 ? deliveries.map(delivery => (
+          <Card key={delivery.delivery_id} className="border-l-4 border-l-blue-500">
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle>Chuyến xe #{delivery.delivery_id}</CardTitle>
+                  <CardDescription>Shipper: {delivery.shipper_name} - Ngày: {new Date(delivery.delivery_date).toLocaleDateString()}</CardDescription>
+                </div>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700">WAITING</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <h4 className="font-semibold mb-2 text-sm text-muted-foreground">Tổng hợp hàng cần soạn:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {aggregateItems(delivery).map(item => (
+                    <li key={item.id} className="text-sm">
+                      <span className="font-medium">{item.name}</span>: {item.quantity}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Button 
+                onClick={() => handleDispatch(delivery)} 
+                disabled={processingId === delivery.delivery_id}
+                className="w-full sm:w-auto"
+              >
+                {processingId === delivery.delivery_id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                Xác nhận Xuất kho (Auto FEFO)
+              </Button>
             </CardContent>
           </Card>
-        ) : (
-          deliveries.map((delivery) => (
-            <Card key={delivery.delivery_id} className="overflow-hidden">
-              <CardHeader className="bg-muted/30 pb-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Truck className="h-5 w-5 text-primary" />
-                      Chuyến xe #{delivery.delivery_id}
-                    </CardTitle>
-                    <CardDescription className="mt-1 flex items-center gap-4">
-                      <span className="flex items-center gap-1">
-                        <CalendarClock className="h-3 w-3" /> 
-                        Giao ngày: {delivery.delivery_date ? format(new Date(delivery.delivery_date), 'dd/MM/yyyy') : 'N/A'}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        Shipper: {delivery.shipper_name || 'Chưa gán'}
-                      </span>
-                    </CardDescription>
-                  </div>
-                  <Button 
-                    onClick={() => handleDispatch(delivery)} 
-                    disabled={processingId === delivery.delivery_id}
-                  >
-                    {processingId === delivery.delivery_id ? 'Đang xử lý...' : 'Xác nhận Xuất kho'}
-                    <PackageCheck className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y">
-                  {delivery.orders?.map((order) => (
-                    <div key={order.order_id} className="p-4 hover:bg-muted/10 transition-colors">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="font-medium flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          {order.store_name}
-                        </div>
-                        <Badge variant="outline">Đơn #{order.order_id}</Badge>
-                      </div>
-                      <div className="pl-6 text-sm text-muted-foreground">
-                        {order.order_details?.map((d, idx) => (
-                          <span key={idx} className="inline-block bg-secondary text-secondary-foreground px-2 py-1 rounded mr-2 mb-1">
-                            {d.product_name} x{d.quantity}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))
+        )) : (
+          <div className="text-center py-12 bg-white rounded-lg border border-dashed text-muted-foreground">
+            <AlertCircle className="mx-auto h-10 w-10 mb-3 opacity-50" />
+            Không có chuyến xe nào đang chờ xuất kho.
+          </div>
         )}
       </div>
     </div>

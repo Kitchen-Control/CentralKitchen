@@ -601,42 +601,28 @@ export const getInventoryById = async (inventoryId) => {
 // --- Log Batches API (cho Flow 3: Procurement) ---
 
 export const createPurchaseBatch = async (batchData) => {
-  if (USE_MOCK_DATA) {
-    await delay(700);
-    const { productId, batch, quantity, expiryDate } = batchData;
+  const response = await fetch(`${API_BASE_URL}/log-batches`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(batchData),
+  });
+  return await handleResponse(response);
+};
 
-    // BR-022: Logic cảnh báo HSD gần sẽ được xử lý ở UI, API chỉ ghi nhận.
-    console.log("MOCK API: Received data for new batch:", batchData);
+// API tạo lô sản xuất (Production Batch)
+export const createBatch = async (batchData) => {
+  const response = await fetch(`${API_BASE_URL}/log-batches`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(batchData),
+  });
+  return await handleResponse(response);
+};
 
-    // Flow 3 - B2: Tạo bản ghi log_batches
-    const newBatchLog = {
-      batchId: batch,
-      type: 'PURCHASE',
-      productId,
-      status: 'DONE', // Theo yêu cầu, hàng mua về là DONE
-      expiryDate,
-      createdAt: new Date().toISOString(),
-    };
-    MOCK_DB.log_batches.push(newBatchLog);
-
-    // Flow 3 - B3: Tự động tăng tồn kho (tạo bản ghi inventory)
-    const product = MOCK_DB.products.find(p => p.productId === productId);
-    const newInventoryItem = {
-      inventoryId: MOCK_DB.inventories.length + 100, // Dùng số lớn để tránh trùng
-      productId,
-      productName: product?.productName || 'Unknown Product',
-      batch,
-      quantity: Number(quantity),
-      expiryDate,
-    };
-    MOCK_DB.inventories.push(newInventoryItem);
-    
-    console.log("MOCK DB: Updated inventories", MOCK_DB.inventories);
-    return mapInventory(newInventoryItem);
-  }
-
-  // API thật sẽ gọi endpoint tương ứng
-  throw new Error("API thật cho createPurchaseBatch chưa được định nghĩa.");
+// API lấy kế hoạch sản xuất
+export const getProductionPlans = async () => {
+  const response = await fetch(`${API_BASE_URL}/production-plans`);
+  return await handleResponse(response);
 };
 
 // --- Quality Feedback API (trả về snake_case) ---
