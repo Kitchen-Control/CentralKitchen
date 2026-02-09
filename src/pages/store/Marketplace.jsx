@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getProductsByType, getInventories, fetchOrders } from '../../data/api';
+import { getProducts, getInventories, fetchOrders } from '../../data/api';
 import { useCart } from '../../contexts/CartContext';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -20,8 +20,10 @@ export default function Marketplace() {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // 1. Lấy danh sách thành phẩm (FINISHED_PRODUCT)
-        const productsData = await getProductsByType('FINISHED_PRODUCT');
+        // 1. Lấy TẤT CẢ sản phẩm, sau đó lọc ở frontend.
+        // Cách này đáng tin cậy hơn phòng trường hợp API /get-by-type có lỗi.
+        const allProductsData = await getProducts();
+        const productsData = (allProductsData || []).filter(p => p.product_type === 'FINISHED_PRODUCT');
         
         // 2. Lấy tồn kho và đơn hàng để tính Available Stock (BR-005)
         // Lưu ý: Nếu user Store không có quyền gọi getInventories, backend sẽ trả lỗi.
