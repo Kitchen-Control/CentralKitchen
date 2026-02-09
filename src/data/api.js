@@ -7,13 +7,29 @@ const API_BASE_URL = '/api';
 async function handleResponse(response) {
   if (!response.ok) {
     let errorMessage = `Lỗi ${response.status}: ${response.statusText}`;
+    const status = response.status;
     try {
       const errorData = await response.json();
-      if (errorData && errorData.message) {
-        errorMessage = errorData.message;
+      const msg =
+        (errorData && (errorData.message ?? errorData.error ?? errorData.errorDescription ?? errorData.msg)) ||
+        '';
+      if (msg && String(msg).trim()) {
+        errorMessage = String(msg).trim();
+      } else {
+        const defaults = {
+          400: 'Yêu cầu không hợp lệ. Kiểm tra lại thông tin gửi lên.',
+          401: 'Tên đăng nhập hoặc mật khẩu không đúng.',
+          404: 'Không tìm thấy.',
+          500: 'Lỗi máy chủ. Vui lòng thử lại sau.',
+        };
+        errorMessage = defaults[status] || errorMessage;
       }
     } catch (e) {
-      // Bỏ qua nếu không thể parse JSON
+      const defaults = {
+        400: 'Yêu cầu không hợp lệ. Kiểm tra lại thông tin gửi lên.',
+        401: 'Tên đăng nhập hoặc mật khẩu không đúng.',
+      };
+      errorMessage = defaults[status] || errorMessage;
     }
     throw new Error(errorMessage);
   }
@@ -166,7 +182,11 @@ export const loginUser = async (username, password) => {
     }
     return data;
   } catch (error) {
-    console.error("Lỗi kết nối khi đăng nhập:", error);
+    console.error("Lỗi đăng nhập:", error);
+    // Giữ nguyên thông báo từ API (400/401: sai tên hoặc mật khẩu)
+    if (error instanceof Error && error.message && !error.message.startsWith('Failed to fetch') && !error.message.includes('NetworkError')) {
+      throw error;
+    }
     throw new Error('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
   }
 };
