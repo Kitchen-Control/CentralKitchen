@@ -66,6 +66,12 @@ export default function Users() {
       return;
     }
 
+    // BR-033: Mật khẩu tối thiểu 6 ký tự
+    if (formData.password.length < 6) {
+      toast.error('Mật khẩu phải có ít nhất 6 ký tự');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await createUser({

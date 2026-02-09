@@ -18,7 +18,8 @@ export default function Products() {
     productName: '',
     productType: '',
     unit: '',
-    shelfLifeDay: ''
+    shelfLifeDays: '',
+    price: ''
   });
 
   const fetchProducts = async () => {
@@ -38,7 +39,7 @@ export default function Products() {
   }, []);
 
   const handleCreate = async () => {
-    if (!formData.productName || !formData.productType || !formData.unit || !formData.shelfLifeDay) {
+    if (!formData.productName || !formData.productType || !formData.unit || !formData.shelfLifeDays || !formData.price) {
       toast.error('Vui lòng điền đầy đủ thông tin');
       return;
     }
@@ -49,11 +50,12 @@ export default function Products() {
         productName: formData.productName,
         productType: formData.productType,
         unit: formData.unit,
-        shelfLifeDay: Number(formData.shelfLifeDay)
+        shelfLifeDays: Number(formData.shelfLifeDays),
+        price: Number(formData.price)
       });
       toast.success('Thêm sản phẩm thành công');
       setIsOpen(false);
-      setFormData({ productName: '', productType: '', unit: '', shelfLifeDay: '' });
+      setFormData({ productName: '', productType: '', unit: '', shelfLifeDays: '', price: '' });
       fetchProducts();
     } catch (error) {
       toast.error('Lỗi thêm sản phẩm: ' + error.message);
@@ -87,7 +89,8 @@ export default function Products() {
               </Select>
 
               <Input placeholder="Đơn vị tính (kg, cái...)" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} />
-              <Input type="number" placeholder="Hạn sử dụng (ngày)" value={formData.shelfLifeDay} onChange={e => setFormData({...formData, shelfLifeDay: e.target.value})} />
+              <Input type="number" placeholder="Hạn sử dụng (ngày)" value={formData.shelfLifeDays} onChange={e => setFormData({...formData, shelfLifeDays: e.target.value})} />
+              <Input type="number" placeholder="Giá bán (VNĐ)" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
 
               <Button onClick={handleCreate} disabled={isSubmitting} className="w-full">
                 {isSubmitting ? <Loader2 className="animate-spin" /> : 'Xác nhận'}
@@ -108,6 +111,7 @@ export default function Products() {
               <div className="text-2xl font-bold">{product.unit}</div>
               <p className="text-xs text-muted-foreground">{product.product_type}</p>
               <p className="text-xs text-muted-foreground mt-1">HSD: {product.shelf_life_days} ngày</p>
+              <p className="text-xs font-semibold mt-1">Giá: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price || 0)}</p>
             </CardContent>
           </Card>
         ))}

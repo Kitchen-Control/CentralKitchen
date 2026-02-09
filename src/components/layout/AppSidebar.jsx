@@ -61,11 +61,7 @@ const menuByRole = {
   // Kitchen Manager (Role 4)
   4: [
     { title: 'Bảng điều khiển', url: '/kitchen', icon: LayoutDashboard },
-    { title: 'Xuất kho giao hàng', url: '/kitchen/outbound', icon: Package },
     { title: 'Sản xuất', url: '/kitchen/production', icon: Factory },
-    { title: 'Nhập nguyên liệu', url: '/kitchen/procurement', icon: Warehouse },
-    { title: 'Quản lý hủy hàng', url: '/kitchen/waste', icon: FileWarning },
-    { title: 'Tồn kho', url: '/kitchen/inventory', icon: Package },
   ],
   // Supply Coordinator (Role 5)
   5: [
@@ -78,6 +74,14 @@ const menuByRole = {
     { title: 'Chuyến hàng của tôi', url: '/shipper', icon: Truck },
     { title: 'Bản đồ giao hàng', url: '/shipper/map', icon: MapPin },
   ],
+  // Warehouse (Role 7)
+  7: [
+    { title: 'Bảng điều khiển', url: '/warehouse', icon: LayoutDashboard },
+    { title: 'Tồn kho', url: '/warehouse/inventory', icon: Package },
+    { title: 'Nhập kho', url: '/warehouse/procurement', icon: Warehouse },
+    { title: 'Xuất kho', url: '/warehouse/outbound', icon: Truck },
+    { title: 'Hủy hàng', url: '/warehouse/waste', icon: FileWarning },
+  ],
 };
 
 const roleNames = {
@@ -87,6 +91,7 @@ const roleNames = {
   4: 'Quản lý bếp',
   5: 'Điều phối viên',
   6: 'Nhân viên giao hàng',
+  7: 'Thủ kho',
 };
 
 export function AppSidebar() {
