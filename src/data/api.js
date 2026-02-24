@@ -478,9 +478,21 @@ export const assignShipperToDelivery = async (deliveryId, shipperId) => {
 };
 
 export const createDelivery = async (deliveryData) => {
-  // OpenAPI Spec hiện tại KHÔNG có endpoint POST /deliveries.
-  // Để tránh lỗi 405 Method Not Allowed, ta chặn ngay tại đây.
-  throw new Error("Chức năng tạo chuyến xe chưa được Lưu và Đanh hỗ trợ (Missing POST /deliveries).");
+  const response = await fetch(`${API_BASE_URL}/deliveries`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(deliveryData),
+  });
+  const data = await handleResponse(response);
+  return data ? mapDelivery(data) : data;
+};
+
+export const updateDeliveryStatus = async (deliveryId, status) => {
+  const response = await fetch(`${API_BASE_URL}/deliveries/${deliveryId}/status?status=${status}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return await handleResponse(response);
 };
 
 // --- Inventory Transactions API ---
@@ -521,23 +533,73 @@ export const getInventoryById = async (inventoryId) => {
   return await handleResponse(response);
 };
 
-// --- Log Batches API (cho Flow 3: Procurement) ---
+// --- Production Plans API (Flow 2) ---
 
-export const createPurchaseBatch = async (batchData) => {
-  // OpenAPI Spec không có endpoint /log-batches
-  throw new Error("Chức năng nhập lô hàng chưa được Lưu và Đanh hỗ trợ (Missing API).");
-};
-
-// API tạo lô sản xuất (Production Batch)
-export const createBatch = async (batchData) => {
-  // OpenAPI Spec không có endpoint /log-batches
-  throw new Error("Chức năng tạo lô sản xuất chưa được Lưu và Đanh hỗ trợ (Missing API).");
-};
-
-// API lấy kế hoạch sản xuất
 export const getProductionPlans = async () => {
-  // OpenAPI Spec không có endpoint /production-plans
-  throw new Error("Chức năng kế hoạch sản xuất chưa được Lưu và Đanh hỗ trợ (Missing API).");
+  const response = await fetch(`${API_BASE_URL}/production-plans`);
+  return await handleResponse(response);
+};
+
+export const getProductionPlanById = async (planId) => {
+  const response = await fetch(`${API_BASE_URL}/production-plans/${planId}`);
+  return await handleResponse(response);
+};
+
+export const createProductionPlan = async (planData) => {
+  const response = await fetch(`${API_BASE_URL}/production-plans`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(planData),
+  });
+  return await handleResponse(response);
+};
+
+export const updateProductionPlan = async (planId, planData) => {
+  const response = await fetch(`${API_BASE_URL}/production-plans/${planId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(planData),
+  });
+  return await handleResponse(response);
+};
+
+// --- Log Batches API (Flow 2: Production, Flow 3: Procurement) ---
+
+export const getLogBatches = async () => {
+  const response = await fetch(`${API_BASE_URL}/log-batches`);
+  return await handleResponse(response);
+};
+
+export const getLogBatchesByPlanId = async (planId) => {
+  const response = await fetch(`${API_BASE_URL}/log-batches/by-plan/${planId}`);
+  return await handleResponse(response);
+};
+
+export const createLogBatch = async (batchData) => {
+  const response = await fetch(`${API_BASE_URL}/log-batches`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(batchData),
+  });
+  return await handleResponse(response);
+};
+
+export const updateBatchStatus = async (batchId, status) => {
+  const response = await fetch(`${API_BASE_URL}/log-batches/${batchId}/status?status=${status}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return await handleResponse(response);
+};
+
+// Alias cho Procurement (Flow 3: mua nguyên liệu)
+export const createPurchaseBatch = async (batchData) => {
+  return createLogBatch({ ...batchData, type: 'PURCHASE', status: 'DONE' });
+};
+
+// Alias cho Production Batch (Flow 2)
+export const createBatch = async (batchData) => {
+  return createLogBatch({ ...batchData, type: 'PRODUCTION' });
 };
 
 // --- Quality Feedback API (trả về snake_case) ---

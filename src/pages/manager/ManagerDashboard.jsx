@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchOrders, getInventories, getProducts } from '../../data/api';
+import { fetchOrders, getInventories, getProducts, getProductionPlans, getLogBatches } from '../../data/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -8,47 +8,56 @@ import {
   AlertTriangle,
   ShoppingCart,
   PackageCheck,
-  ArrowDownToLine,
+  ArrowUpRight,
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 
 export default function ManagerDashboard() {
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders]         = useState([]);
   const [inventories, setInventories] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts]     = useState([]);
+  const [plans, setPlans]           = useState([]);
+  const [batches, setBatches]       = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     Promise.all([
       fetchOrders().catch(() => []),
       getInventories().catch(() => []),
       getProducts().catch(() => []),
-    ]).then(([o, inv, p]) => {
+      getProductionPlans().catch(() => []),
+      getLogBatches().catch(() => []),
+    ]).then(([o, inv, p, pl, b]) => {
       setOrders(Array.isArray(o) ? o : []);
       setInventories(Array.isArray(inv) ? inv : []);
       setProducts(Array.isArray(p) ? p : []);
+      setPlans(Array.isArray(pl) ? pl : []);
+      setBatches(Array.isArray(b) ? b : []);
     }).finally(() => setLoading(false));
   }, []);
 
-  const activePlans = 0;
-  const pendingOrders = orders.filter((o) => o.status === 'WAITTING').length;
-  const lowStockItems = inventories.filter((i) => (i.quantity ?? 0) < 50);
-  const expiredInventory = inventories.filter((i) => {
+  const productionBatches = batches.filter((b) => !b.type || b.type === 'PRODUCTION');
+  const activePlans = plans.filter((plan) => {
+    const pid = plan.planId ?? plan.plan_id ?? plan.id;
+    return productionBatches.some((b) => (b.planId ?? b.plan_id) === pid && b.status === 'PROCESSING');
+  }).length;
+  const doneBatchesCount   = productionBatches.filter((b) => b.status === 'DONE').length;
+  const pendingOrders     = orders.filter((o) => o.status === 'WAITTING').length;
+  const finishedProducts  = products.filter((p) => p.product_type === 'FINISHED_PRODUCT');
+  const lowStockItems     = inventories.filter((i) => (i.quantity ?? 0) < 50);
+  const expiredInventory  = inventories.filter((i) => {
     const expiry = new Date(i.expiry_date || 0);
     return expiry < new Date() && (i.quantity ?? 0) > 0;
   });
-  const pendingImportBatches = [];
-  const finishedProducts = products.filter((p) => p.product_type === 'FINISHED_PRODUCT');
-
-  const handleImportBatch = () => {
-    toast.info('Chức năng nhập kho từ lô sản xuất cần API Production Batches.');
-  };
 
   const handleDisposeInventory = (inv) => {
-    toast.info('Chức năng tiêu hủy hàng hết hạn cần API Inventory Transactions (EXPORT).');
+    toast.info('Chuyển đến trang Hủy hàng để xử lý.');
   };
+
 
   const stockData = finishedProducts.map((p) => {
     const totalStock = inventories
@@ -75,14 +84,16 @@ export default function ManagerDashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/manager/planning')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Kế hoạch đang chạy</CardTitle>
             <ClipboardList className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activePlans}</div>
-            <p className="text-xs text-muted-foreground">Flow 2: Sản xuất</p>
+            <p className="text-xs text-muted-foreground">
+              {plans.length} kế hoạch · Nhấn để xem
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -97,11 +108,11 @@ export default function ManagerDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cần nhập kho</CardTitle>
-            <ArrowDownToLine className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium">Lô SX hoàn thành</CardTitle>
+            <PackageCheck className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{pendingImportBatches.length}</div>
+            <div className="text-2xl font-bold">{doneBatchesCount}</div>
             <p className="text-xs text-muted-foreground">Lô hàng đã SX xong</p>
           </CardContent>
         </Card>
@@ -119,32 +130,31 @@ export default function ManagerDashboard() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle>Duyệt nhập kho thành phẩm</CardTitle>
-            <CardDescription>Các lô hàng Bếp đã hoàn thành (Flow 2-B3)</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Kế hoạch sản xuất gần đây</CardTitle>
+              <CardDescription>Các lô đang trong trạng thái PROCESSING</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate('/manager/planning')}>
+              <ArrowUpRight className="h-4 w-4 mr-1" /> Xem tất cả
+            </Button>
           </CardHeader>
           <CardContent>
-            {pendingImportBatches.length === 0 ? (
+            {productionBatches.filter(b => b.status === 'PROCESSING').length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                Không có lô hàng nào cần nhập kho. (Cần API Production Batches)
+                Không có lô nào đang sản xuất.
               </p>
             ) : (
-              <div className="space-y-4">
-                {pendingImportBatches.map((batch) => (
-                  <div
-                    key={batch.batch_id}
-                    className="flex items-center justify-between border-b pb-3 last:border-0"
-                  >
-                    <div>
-                      <p className="font-medium">Lô #{batch.batch_id}</p>
-                      <span>SL: {batch.quantity}</span>
+              <div className="space-y-3">
+                {productionBatches.filter(b => b.status === 'PROCESSING').slice(0, 4).map((batch) => {
+                  const bId = batch.batchId ?? batch.batch_id ?? batch.id;
+                  return (
+                    <div key={bId} className="flex items-center justify-between text-sm">
+                      <span className="font-medium">Lô #{bId}</span>
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Đang SX</span>
                     </div>
-                    <Button size="sm" onClick={handleImportBatch}>
-                      <PackageCheck className="mr-2 h-4 w-4" />
-                      Nhập kho
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

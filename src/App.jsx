@@ -47,6 +47,7 @@ import Products from "./pages/admin/Products";
 import Users from "./pages/admin/Users";
 import Recipes from "./pages/admin/Recipes";
 import Plans from "./pages/admin/Plans";
+import Reports from "./pages/admin/Reports";
 
 // Warehouse pages
 import WarehouseDashboard from "./pages/warehouse/Dashboard";
@@ -132,7 +133,7 @@ const App = () => (
                   <Route path="/admin/plans" element={<Plans />} />
                   <Route path="/admin/products" element={<Products />} />
                   <Route path="/admin/users" element={<Users />} />
-                  <Route path="/admin/reports" element={<ComingSoon title="Báo cáo" />} />
+                  <Route path="/admin/reports" element={<Reports />} />
                   <Route path="/admin/settings" element={<ComingSoon title="Cài đặt" />} />
                 </Route>
               </Route>
