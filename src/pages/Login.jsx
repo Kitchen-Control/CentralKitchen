@@ -1,57 +1,72 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { Button } from '../components/ui/button';
-import { loginUser } from '../data/api';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Alert, AlertDescription } from '../components/ui/alert';
-import { ChefHat, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { Button } from "../components/ui/button";
+import { loginUser } from "../data/api";
+import { mockLoginUser, MOCK_ACCOUNTS } from "../data/mockApi";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { ChefHat, Eye, EyeOff, Loader2, FlaskConical } from "lucide-react";
+import { toast } from "sonner";
+
+// ⚠️ CHỈ BẬT KHI TEST - TẮT (false) TRƯỚC KHI DEPLOY
+const USE_MOCK = false;
 
 export default function Login() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
+  const [showMockHint, setShowMockHint] = useState(true);
+
   const { login, getRolePath } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
 
     try {
-      const userData = await loginUser(username, password);
+      const userData = USE_MOCK
+        ? await mockLoginUser(username, password)
+        : await loginUser(username, password);
 
       if (userData && userData.user) {
         login(userData);
-        
+
         // Truyền trực tiếp role_id vào getRolePath vì state user trong context chưa kịp cập nhật
         const roleId = userData.user.role_id;
         const path = getRolePath(roleId);
-        
+
         console.log("Login Success. RoleID:", roleId, "Redirect Path:", path);
 
-        if (path === '/login' || path === '/') {
+        if (path === "/login" || path === "/") {
           // Lấy tên role bị lỗi từ object user để hiển thị
           const failedRoleName = userData.user?.role?.role_name;
-          toast.error(`Lỗi quyền: Không thể xác định vai trò từ tên '${failedRoleName || 'TRỐNG'}' mà API trả về.`);
+          toast.error(
+            `Lỗi quyền: Không thể xác định vai trò từ tên '${failedRoleName || "TRỐNG"}' mà API trả về.`,
+          );
           return;
         }
 
-        toast.success('Đăng nhập thành công!');
+        toast.success("Đăng nhập thành công!");
         navigate(path, { replace: true });
       } else {
-        toast.error('Tên đăng nhập hoặc mật khẩu không đúng.');
+        toast.error("Tên đăng nhập hoặc mật khẩu không đúng.");
       }
     } catch (error) {
-      toast.error(error.message || 'Đã có lỗi xảy ra khi đăng nhập.');
-      console.error('Login error:', error);
+      toast.error(error.message || "Đã có lỗi xảy ra khi đăng nhập.");
+      console.error("Login error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -66,8 +81,63 @@ export default function Login() {
             <ChefHat className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Kitchen Control</h1>
-          <p className="text-muted-foreground">Hệ thống quản lý bếp trung tâm</p>
+          <p className="text-muted-foreground">
+            Hệ thống quản lý bếp trung tâm
+          </p>
         </div>
+
+        {/* Mock Mode Banner */}
+        {USE_MOCK && (
+          <div className="rounded-lg border border-yellow-400 bg-yellow-50 dark:bg-yellow-950/30 p-3 text-sm">
+            <div className="flex items-center justify-between mb-1">
+              <span className="flex items-center gap-1.5 font-semibold text-yellow-700 dark:text-yellow-400">
+                <FlaskConical className="w-4 h-4" />
+                MOCK MODE – Chỉ dùng để test
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowMockHint((v) => !v)}
+                className="text-xs text-yellow-600 underline"
+              >
+                {showMockHint ? "Ẩn" : "Xem tài khoản"}
+              </button>
+            </div>
+            {showMockHint && (
+              <table className="w-full text-xs mt-2 border-collapse">
+                <thead>
+                  <tr className="text-yellow-600 dark:text-yellow-500">
+                    <th className="text-left pb-1">Username</th>
+                    <th className="text-left pb-1">Password</th>
+                    <th className="text-left pb-1">Role</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {MOCK_ACCOUNTS.map((acc) => (
+                    <tr
+                      key={acc.username}
+                      className="cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/40 rounded"
+                      onClick={() => {
+                        setUsername(acc.username);
+                        setPassword(acc.password);
+                      }}
+                    >
+                      <td className="py-0.5 pr-2 font-mono font-bold">
+                        {acc.username}
+                      </td>
+                      <td className="py-0.5 pr-2 font-mono">{acc.password}</td>
+                      <td className="py-0.5 text-yellow-700 dark:text-yellow-400">
+                        {acc.role}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="mt-1.5 text-yellow-600 dark:text-yellow-500 text-xs">
+              👆 Click vào dòng để tự điền form
+            </p>
+          </div>
+        )}
 
         {/* Login Form */}
         <Card className="shadow-card">
@@ -84,7 +154,7 @@ export default function Login() {
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-              
+
               <div className="space-y-2">
                 <Label htmlFor="username">Tên đăng nhập</Label>
                 <Input
@@ -97,13 +167,13 @@ export default function Login() {
                   autoComplete="username"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="password">Mật khẩu</Label>
                 <div className="relative">
                   <Input
                     id="password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     placeholder="Nhập mật khẩu"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -134,7 +204,7 @@ export default function Login() {
                     Đang đăng nhập...
                   </>
                 ) : (
-                  'Đăng nhập'
+                  "Đăng nhập"
                 )}
               </Button>
             </form>
